@@ -1,0 +1,7 @@
+{:paths ["src" "test"]
+ :tasks
+ {test     {:doc  "Run the test suite against both stores"
+            :task (do (require '[memgraph.run-tests])
+                      ((resolve 'memgraph.run-tests/-main)))}
+  memgraph {:doc  "Run the memgraph CLI (bb run memgraph -- <args>)"
+            :task (apply (requiring-resolve 'memgraph.cli/-main) *command-line-args*)}}}
