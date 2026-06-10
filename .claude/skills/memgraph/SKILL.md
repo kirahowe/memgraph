@@ -69,7 +69,14 @@ Choose the epistemic class deliberately — it sets the conflict behavior:
   bin/memgraph ingest-code --dir src
   ```
   Idempotent: unchanged facts no-op; a namespace that moved files supersedes
-  its old `defined-in` automatically.
+  its old `defined-in`; facts about deleted code are invalidated.
+- **Periodically (or after ingesting)**: run the consolidation pass:
+  ```
+  bin/memgraph consolidate
+  ```
+  Closes open episodes with summaries (making episodic history searchable),
+  reviews conflicts, decays stale facts, and surfaces `x/*` predicates worth
+  promoting.
 
 ## Handling responses
 

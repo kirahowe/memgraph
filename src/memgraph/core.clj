@@ -279,14 +279,6 @@
       (store/-update-confidence s fact-id confidence))
     {:status :decayed :affected (count plan)}))
 
-(defn consolidate
-  "Dreaming-style offline consolidation. Defined in the surface, stubbed
-  until the pluggable LLM judge lands — adding it changes no API."
-  [s _opts]
-  {:status :not-implemented
-   :hint "Consolidation (episode summarization, pattern promotion) lands with the pluggable LLM judge."
-   :open-episodes (->> (store/-list-episodes s) (remove :closed-at) (mapv :id))})
-
 (defn stats [s]
   (assoc (store/-stats s)
          :open-conflicts (count (logic/open-conflicts (store/-all-facts s) (now)))))

@@ -157,11 +157,16 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
 
 ## Maintenance
 
-- `judge` — LLM review of open conflicts (see "How conflicts resolve").
-- `decay` — soft forgetting: confidence decays on stale facts; commitments and
-  decision-record facts never decay.
-- `consolidate` — stubbed surface for Dreaming-style offline consolidation
-  (lands with the pluggable LLM judge).
+- `consolidate` — the Dreaming-style offline pass: LLM-summarizes and closes
+  open episodes (summaries are full-text indexed, so episodic history becomes
+  searchable — "why did we do X" is a query), judges open conflicts, decays
+  stale confidence, and reports `x/*` predicates earning promotion review.
+  Falls back to a mechanical digest when the LLM is unavailable, so the pass
+  always makes progress.
+- `judge` — LLM review of open conflicts on its own (see "How conflicts
+  resolve").
+- `decay` — soft forgetting on its own: confidence decays on stale facts;
+  commitments and decision-record facts never decay.
 - `dump` — export everything as JSONL: the portability story. The live LMDB
   directory is gitignored; the dump is the committable artifact.
 

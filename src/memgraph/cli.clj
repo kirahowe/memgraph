@@ -178,8 +178,11 @@
     (fn [s] (emit opts (core/decay s (select-keys opts [:older-than-days :factor]))))))
 
 (defn cmd-consolidate [{:keys [opts]}]
-  (with-store opts
-    (fn [s] (emit opts (core/consolidate s {})))))
+  (let [consolidate (requiring-resolve 'memgraph.consolidate/consolidate!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (consolidate s (select-keys opts [:command :resolve :min-confidence
+                                                     :older-than-days :factor :min-usage])))))))
 
 (def help-text "memgraph — bi-temporal, epistemically-typed knowledge graph for coding-agent memory
 
@@ -230,7 +233,15 @@ Commands:
   dump                Export everything as JSONL [--out FILE]
   stats               Store counts
   decay               Soft forgetting: [--older-than-days 90] [--factor 0.9]
-  consolidate         (stub) Dreaming-style consolidation
+  consolidate         Offline consolidation pass: LLM-summarize and close open
+                        episodes that contain facts (summaries become
+                        full-text searchable; mechanical digest if the LLM is
+                        unavailable), judge open conflicts (report-only unless
+                        --resolve), decay stale confidence, and report x/*
+                        predicates earning promotion review.
+                        [--resolve] [--min-confidence 0.8]
+                        [--older-than-days 90] [--factor 0.9] [--min-usage 3]
+                        [--command \"claude -p\"] (default $MEMGRAPH_LLM_CMD)
 ")
 
 (defn cmd-help [_]
@@ -263,7 +274,10 @@ Commands:
    {:cmds ["stats"] :fn cmd-stats}
    {:cmds ["decay"] :fn cmd-decay :spec {:older-than-days {:coerce :long}
                                          :factor {:coerce :double}}}
-   {:cmds ["consolidate"] :fn cmd-consolidate}
+   {:cmds ["consolidate"] :fn cmd-consolidate
+    :spec {:resolve {:coerce :boolean} :min-confidence {:coerce :double}
+           :older-than-days {:coerce :long} :factor {:coerce :double}
+           :min-usage {:coerce :long}}}
    {:cmds ["help"] :fn cmd-help}
    {:cmds [] :fn cmd-help}])
 

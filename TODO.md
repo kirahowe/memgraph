@@ -5,10 +5,6 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
 
 ## Next up
 
-- [ ] **Consolidation (Dreaming-style).** `consolidate` is a stub: episode
-      summarization on close, repeated-pattern promotion to procedural memory,
-      reconcile + decay in one offline pass. The LLM machinery it needs
-      (`memgraph.llm`) now exists.
 - [ ] **Entity resolution.** `ensure-entity` is exact name+scope match by
       design. Aliases, renames, and split identities (`UserService` →
       `UserReadService` + `UserWriteService`) belong behind that abstraction.
@@ -57,3 +53,8 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       compatible. Report-only by default; `--resolve` acts above a confidence
       gate and never auto-resolves contradictions. Shared LLM machinery in
       `memgraph.llm` (`$MEMGRAPH_LLM_CMD`).
+- [x] Consolidation (`consolidate`): one offline pass that LLM-summarizes and
+      closes open episodes (with a mechanical fallback; summaries become
+      full-text searchable), judges open conflicts, decays stale confidence,
+      and reports `x/*` promotion candidates. Pattern promotion to procedural
+      memory remains future work alongside the promotion command.
