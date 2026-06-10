@@ -7,6 +7,7 @@
   Pod discipline: the pod is a serialization boundary — push whole queries
   across and get result sets back, never loop chattily."
   (:require [babashka.pods :as pods]
+            [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
 (pods/load-pod (or (System/getenv "MEMGRAPH_DTLV") "dtlv"))
@@ -19,6 +20,11 @@
    :entity/name      {:db/valueType :db.type/string :db/fulltext true}
    :entity/type      {:db/valueType :db.type/keyword}
    :entity/scope     {:db/valueType :db.type/string}
+   :entity/aliases   {:db/valueType :db.type/string :db/cardinality :db.cardinality/many
+                      :db/fulltext true}
+   ;; derived lookup fields for near-match resolution, maintained on write
+   :entity/norm-name    {:db/valueType :db.type/string}
+   :entity/norm-aliases {:db/valueType :db.type/string :db/cardinality :db.cardinality/many}
 
    ;; ---- Fact (reified edge + metadata bundle) ----
    :fact/id          {:db/valueType :db.type/string :db/unique :db.unique/identity}
@@ -66,7 +72,8 @@
 
 ;; ---- wire <-> datom translation -------------------------------------------
 
-(def ^:private entity-pull [:entity/id :entity/name :entity/type :entity/scope])
+(def ^:private entity-pull
+  [:entity/id :entity/name :entity/type :entity/scope :entity/aliases])
 
 (def ^:private fact-pull
   [:fact/id :fact/predicate :fact/object-kind :fact/object-lit
@@ -80,7 +87,8 @@
 (defn- ent->wire [m]
   (when m
     {:id (:entity/id m) :name (:entity/name m)
-     :type (:entity/type m) :scope (:entity/scope m)}))
+     :type (:entity/type m) :scope (:entity/scope m)
+     :aliases (vec (:entity/aliases m))}))
 
 (defn- fact->wire [m]
   {:id (:fact/id m)
@@ -169,16 +177,57 @@
           (ent->wire (cond-> existing
                        (and type (nil? (:entity/type existing))) (assoc :entity/type type))))
         (let [ent (strip-nils {:entity/id (str "e-" (random-uuid))
-                               :entity/name name :entity/type type :entity/scope scope})]
+                               :entity/name name :entity/type type :entity/scope scope
+                               :entity/norm-name (logic/normalize-entity-name name)})]
           (d/transact! conn [ent])
           (ent->wire ent)))))
 
   (-get-entity [_ name scope]
-    (some-> (d/q '[:find (pull ?e [:entity/id :entity/name :entity/type :entity/scope]) .
-                   :in $ ?n ?s
-                   :where [?e :entity/name ?n] [?e :entity/scope ?s]]
+    (some-> (d/q (into [:find (list 'pull '?e entity-pull) '.]
+                       '[:in $ ?n ?s
+                         :where [?e :entity/name ?n] [?e :entity/scope ?s]])
                  (d/db conn) name scope)
             ent->wire))
+
+  (-find-entities [_ name scope]
+    (let [db (d/db conn)
+          norm (logic/normalize-entity-name name)
+          q-attr (fn [attr v]
+                   (d/q [:find '[?e ...] :in '$ '?v '?s
+                         :where ['?e attr '?v] '[?e :entity/scope ?s]]
+                        db v scope))]
+      (->> (distinct (concat (q-attr :entity/name name)
+                             (q-attr :entity/aliases name)
+                             (q-attr :entity/norm-name norm)
+                             (q-attr :entity/norm-aliases norm)))
+           (mapv #(ent->wire (d/pull db entity-pull %))))))
+
+  (-update-entity [_ entity-id {:keys [name type add-aliases]}]
+    (d/transact! conn [(cond-> {:db/id [:entity/id entity-id]}
+                         name (assoc :entity/name name
+                                     :entity/norm-name (logic/normalize-entity-name name))
+                         type (assoc :entity/type type)
+                         (seq add-aliases)
+                         (assoc :entity/aliases (vec add-aliases)
+                                :entity/norm-aliases (mapv logic/normalize-entity-name
+                                                           add-aliases)))])
+    entity-id)
+
+  (-repoint-facts [_ from-id to-id]
+    (let [db (d/db conn)
+          eid (fn [id] (d/q '[:find ?e . :in $ ?id :where [?e :entity/id ?id]] db id))
+          from-eid (eid from-id)
+          to-eid (eid to-id)
+          subj (d/q '[:find [?f ...] :in $ ?e :where [?f :fact/subject ?e]] db from-eid)
+          obj (d/q '[:find [?f ...] :in $ ?e :where [?f :fact/object-ref ?e]] db from-eid)]
+      (d/transact! conn
+                   (concat (map (fn [f] {:db/id f :fact/subject to-eid}) subj)
+                           (map (fn [f] {:db/id f :fact/object-ref to-eid}) obj)))
+      (count (distinct (concat subj obj)))))
+
+  (-delete-entity [_ entity-id]
+    (d/transact! conn [[:db/retractEntity [:entity/id entity-id]]])
+    entity-id)
 
   (-list-entities [_ {:keys [type scope]}]
     (cond->> (map ent->wire

@@ -68,21 +68,152 @@
 ;; Entities
 ;; ---------------------------------------------------------------------------
 
+(declare assert-fact)
+
+(defn resolve-entity
+  "Resolve a name to an entity: exact name, exact alias, then a unique
+  case/separator-insensitive match (type-guarded). Returns
+  {:entity e :via :exact|:alias|:normalized} or nil — ambiguity never
+  guesses."
+  [s {:keys [name scope type]}]
+  (let [scope (or scope logic/default-scope)]
+    (logic/pick-entity-match {:name name
+                              :norm (logic/normalize-entity-name name)
+                              :type (logic/->kw type)}
+                             (store/-find-entities s name scope))))
+
 (defn ensure-entity
-  "Exact name+scope match or create. Entity resolution (renames, splits,
-  aliases) will eventually live behind this operation."
+  "Resolve or create. A resolution through normalization self-heals: the
+  queried name is recorded as an alias so the next lookup is exact."
   [s {:keys [name type scope]}]
   (when (str/blank? (str name))
     (logic/fail "Entity name required" {:type :missing-entity-name}))
-  (store/-ensure-entity s {:name (str/trim (str name))
-                           :type (logic/->kw type)
-                           :scope (or scope logic/default-scope)}))
+  (let [name (str/trim (str name))
+        scope (or scope logic/default-scope)
+        type (logic/->kw type)]
+    (if-let [{:keys [entity via]} (resolve-entity s {:name name :scope scope :type type})]
+      (do
+        (when (= :normalized via)
+          (store/-update-entity s (:id entity) {:add-aliases [name]}))
+        (when (and type (nil? (:type entity)))
+          (store/-update-entity s (:id entity) {:type type}))
+        (cond-> entity
+          (= :normalized via) (update :aliases (fnil conj []) name)
+          (and type (nil? (:type entity))) (assoc :type type)))
+      (store/-ensure-entity s {:name name :type type :scope scope}))))
 
 (defn require-entity [s name scope]
-  (or (store/-get-entity s name (or scope logic/default-scope))
+  (or (:entity (resolve-entity s {:name name :scope scope}))
       (logic/fail (str "Entity not found: " name)
                   {:type :entity-not-found :entity name
                    :scope (or scope logic/default-scope)})))
+
+(defn rename-entity
+  "Rename in place: same entity, same facts, same history; the old name is
+  kept as an alias."
+  [s {:keys [from to scope]}]
+  (when (str/blank? (str to))
+    (logic/fail "New name required" {:type :missing-entity-name}))
+  (let [scope (or scope logic/default-scope)
+        e (require-entity s from scope)
+        to (str/trim (str to))]
+    (when-let [clash (store/-get-entity s to scope)]
+      (when (not= (:id clash) (:id e))
+        (logic/fail (str "Entity already exists: " to)
+                    {:type :entity-exists :entity to
+                     :hint "use `entity merge` to combine them"})))
+    (store/-update-entity s (:id e) {:name to :add-aliases [(:name e)]})
+    {:status :renamed
+     :entity (-> e
+                 (assoc :name to)
+                 (update :aliases #(vec (distinct (conj (vec %) (:name e))))))}))
+
+(defn alias-entity
+  "Record an additional name for an entity."
+  [s {:keys [name alias scope]}]
+  (when (str/blank? (str alias))
+    (logic/fail "Alias required" {:type :missing-alias}))
+  (let [scope (or scope logic/default-scope)
+        e (require-entity s name scope)
+        alias (str/trim (str alias))]
+    (when-let [clash (store/-get-entity s alias scope)]
+      (when (not= (:id clash) (:id e))
+        (logic/fail (str "Another entity is named " alias)
+                    {:type :entity-exists :entity alias
+                     :hint "use `entity merge` to combine them"})))
+    (store/-update-entity s (:id e) {:add-aliases [alias]})
+    {:status :aliased
+     :entity (update e :aliases #(vec (distinct (conj (vec %) alias))))}))
+
+(defn merge-entities
+  "Two entities that turn out to be the same thing: repoint every fact from
+  one onto the other, carry the merged-away names as aliases, drop the empty
+  husk, and collapse the exact duplicates the repointing exposed (non-lossy —
+  they are invalidated, not deleted)."
+  [s {:keys [from into scope]}]
+  (let [scope (or scope logic/default-scope)
+        src (require-entity s from scope)
+        dst (require-entity s into scope)]
+    (when (= (:id src) (:id dst))
+      (logic/fail "Cannot merge an entity into itself"
+                  {:type :merge-self :entity (:name src)}))
+    (let [t-now (now)
+          repointed (store/-repoint-facts s (:id src) (:id dst))
+          aliases (vec (distinct (remove #{(:name dst)}
+                                         (cons (:name src) (:aliases src)))))]
+      (when (seq aliases)
+        (store/-update-entity s (:id dst) {:add-aliases aliases}))
+      (store/-delete-entity s (:id src))
+      (let [dups (logic/collapse-duplicates-plan
+                  (store/-get-facts s (:id dst) {:direction :both})
+                  t-now)]
+        (doseq [id dups]
+          (store/-invalidate s id t-now
+                             (str "duplicate after merging " (:name src)
+                                  " into " (:name dst))))
+        {:status :merged
+         :from (:name src)
+         :into (:name dst)
+         :facts-repointed repointed
+         :duplicates-invalidated (count dups)
+         :aliases-added aliases}))))
+
+(defn split-entity
+  "Record that an entity split into successors: derived-from lineage edges
+  are asserted for each. Facts on the source stay put — which successor
+  inherits a preference or a decision is a judgment call, so they are left
+  for review rather than redistributed mechanically."
+  [s {:keys [from into scope]}]
+  (let [scope (or scope logic/default-scope)
+        src (require-entity s from scope)
+        names (->> (if (sequential? into) into (str/split (str into) #","))
+                   (map str/trim)
+                   (remove str/blank?)
+                   vec)]
+    (when (empty? names)
+      (logic/fail "Successor names required, e.g. --into \"UserReadService,UserWriteService\""
+                  {:type :missing-successors}))
+    {:status :split
+     :from (:name src)
+     :into names
+     :lineage (mapv (fn [n]
+                      (get-in (assert-fact s {:subject n
+                                              :subject-scope scope
+                                              :predicate :core/derived-from
+                                              :object (:name src)
+                                              :object-scope scope
+                                              :object-kind :entity})
+                              [:fact :id]))
+                    names)
+     :note "facts on the source were left in place for review"}))
+
+(defn entity-duplicates
+  "Likely-duplicate entity clusters (shared normalized name within a scope) —
+  candidates for `entity merge`."
+  [s]
+  (let [clusters (logic/entity-duplicate-clusters (store/-list-entities s {}))]
+    {:clusters (count clusters)
+     :candidates clusters}))
 
 ;; ---------------------------------------------------------------------------
 ;; assert-fact: gather -> decide (pure) -> execute
@@ -124,7 +255,7 @@
         obj-scope (or object-scope logic/default-scope)
         kind (logic/resolve-object-kind
               pred (logic/->kw object-kind)
-              (some? (store/-get-entity s (str object) obj-scope)))
+              (some? (resolve-entity s {:name (str object) :scope obj-scope})))
         subj (ensure-entity s {:name subject :type subject-type :scope subject-scope})
         obj-ent (when (= :entity kind)
                   (ensure-entity s {:name object :type object-type :scope obj-scope}))

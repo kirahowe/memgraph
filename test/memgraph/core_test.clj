@@ -179,6 +179,83 @@
       (is (= #{"A"} (set (map :name (:entities n)))))
       (is (= 1 (count (:facts n)))))))
 
+(deftest entity-resolution-in-lookups
+  (with-stores [s]
+    (core/assert-fact s {:subject "AuthService" :subject-type :service
+                         :predicate :core/depends-on :object "Redis"})
+    (testing "near-match names resolve in reads (without mutating anything)"
+      (is (= 1 (count (:facts (core/get-facts s {:entity "auth-service"})))))
+      (is (= 1 (count (:facts (core/get-facts s {:entity "redis" :direction :in}))))))
+    (testing "asserting against a near-match does not mint a duplicate entity"
+      (core/assert-fact s {:subject "auth_service" :predicate :core/prefers :object "x"})
+      (is (= 2 (count (:facts (core/get-facts s {:entity "AuthService"}))))))
+    (testing "the write path self-heals: the near-match name became an alias"
+      (is (some #{"auth_service"}
+                (:aliases (:entity (core/resolve-entity s {:name "AuthService"}))))))
+    (testing "ambiguity refuses to guess"
+      (store/-ensure-entity s {:name "FooBar" :scope "project"})
+      (store/-ensure-entity s {:name "foo-bar" :scope "project"})
+      (is (nil? (core/resolve-entity s {:name "foo_bar"})))
+      (is (pos? (:clusters (core/entity-duplicates s)))))))
+
+(deftest entity-rename-preserves-everything
+  (with-stores [s]
+    (core/assert-fact s {:subject "UserService" :predicate :core/depends-on :object "Postgres"})
+    (let [r (core/rename-entity s {:from "UserService" :to "AccountService"})]
+      (is (= "AccountService" (get-in r [:entity :name])))
+      (is (some #{"UserService"} (get-in r [:entity :aliases]))))
+    (testing "facts follow the rename in both backends"
+      (let [{:keys [facts]} (core/get-facts s {:entity "AccountService"})]
+        (is (= 1 (count facts)))
+        (is (= "AccountService" (get-in (first facts) [:subject :name])))))
+    (testing "the old name still resolves"
+      (is (= :alias (:via (core/resolve-entity s {:name "UserService"})))))
+    (testing "renaming onto another entity is refused"
+      (core/ensure-entity s {:name "Postgres"})
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (core/rename-entity s {:from "AccountService" :to "Postgres"}))))))
+
+(deftest entity-merge-repoints-and-collapses
+  (with-stores [s]
+    (core/assert-fact s {:subject "AuthSvc" :predicate :core/depends-on :object "Redis"})
+    (core/assert-fact s {:subject "AuthService" :predicate :core/depends-on :object "Redis"})
+    (core/assert-fact s {:subject "AuthSvc" :predicate :core/prefers :object "small functions"})
+    (let [r (core/merge-entities s {:from "AuthSvc" :into "AuthService"})]
+      (is (= 2 (:facts-repointed r)))
+      (is (= 1 (:duplicates-invalidated r)) "the doubled Redis dependency collapses")
+      (is (some #{"AuthSvc"} (:aliases-added r))))
+    (testing "the survivor carries everything"
+      (let [{:keys [facts]} (core/get-facts s {:entity "AuthService"})]
+        (is (= #{:core/depends-on :core/prefers} (set (map :predicate facts))))
+        (is (= 2 (count facts)))))
+    (testing "the husk is gone but its name resolves to the survivor"
+      (is (nil? (store/-get-entity s "AuthSvc" "project")))
+      (is (= "AuthService" (get-in (core/resolve-entity s {:name "AuthSvc"})
+                                   [:entity :name]))))
+    (testing "the collapsed duplicate is invalidated, not deleted"
+      (let [{:keys [history]} (core/get-history s {:subject "AuthService"
+                                                   :predicate :core/depends-on})]
+        (is (= 2 (count history)))
+        (is (= 1 (count (filter :t-invalid history))))))
+    (testing "self-merge is refused"
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (core/merge-entities s {:from "AuthSvc" :into "AuthService"}))))))
+
+(deftest entity-split-records-lineage
+  (with-stores [s]
+    (core/assert-fact s {:subject "UserService" :predicate :core/prefers :object "CQRS"})
+    (let [r (core/split-entity s {:from "UserService"
+                                  :into "UserReadService, UserWriteService"})]
+      (is (= ["UserReadService" "UserWriteService"] (:into r)))
+      (is (= 2 (count (:lineage r)))))
+    (testing "successors carry derived-from lineage"
+      (let [{:keys [facts]} (core/get-facts s {:entity "UserReadService"})]
+        (is (= :core/derived-from (:predicate (first facts))))
+        (is (= "UserService" (get-in (first facts) [:object-ref :name])))))
+    (testing "the source's facts are untouched"
+      (is (= 1 (count (:facts (core/get-facts s {:entity "UserService"
+                                                 :predicate :core/prefers}))))))))
+
 (deftest episodes-and-ingest
   (with-stores [s]
     (let [r (core/ingest s {:source-type :session-log :ref "session-42"}

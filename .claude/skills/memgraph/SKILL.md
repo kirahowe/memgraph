@@ -95,6 +95,17 @@ Choose the epistemic class deliberately — it sets the conflict behavior:
 - Predicates: `bin/memgraph predicates --usage` lists the vocabulary. Prefer
   `core/*` predicates; bare names like `depends-on` resolve to `core/*`.
 
+## Entity hygiene
+
+- Lookups are forgiving: aliases and case/separator variants resolve
+  automatically (`auth-service` finds `AuthService`), so don't create
+  near-duplicate entities on purpose — reuse existing names.
+- When the code renames or restructures things, curate the graph:
+  `bin/memgraph entity rename --from X --to Y` (history intact, old name
+  aliased), `entity merge --from X --into Y` for accidental duplicates,
+  `entity split --from X --into "A,B"` to record lineage. Check
+  `bin/memgraph entity duplicates` when things look doubled.
+
 ## Phrasing facts well
 
 - Subject and entity-objects are graph nodes: name them like stable entities

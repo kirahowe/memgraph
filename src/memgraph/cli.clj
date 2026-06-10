@@ -114,6 +114,26 @@
     (fn [s] (emit opts (store/-list-entities s {:type (logic/->kw (:type opts))
                                                 :scope (:scope opts)})))))
 
+(defn cmd-entity-rename [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/rename-entity s (select-keys opts [:from :to :scope]))))))
+
+(defn cmd-entity-alias [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/alias-entity s (select-keys opts [:name :alias :scope]))))))
+
+(defn cmd-entity-merge [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/merge-entities s (select-keys opts [:from :into :scope]))))))
+
+(defn cmd-entity-split [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/split-entity s (select-keys opts [:from :into :scope]))))))
+
+(defn cmd-entity-duplicates [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/entity-duplicates s)))))
+
 (defn cmd-predicates [{:keys [opts]}]
   (with-store opts
     (fn [s] (emit opts (core/list-predicates s (select-keys opts [:category :status :usage]))))))
@@ -216,6 +236,18 @@ Commands:
                         [--command \"claude -p\"] (default $MEMGRAPH_LLM_CMD)
   entity ensure       --name N [--type T] [--scope S]
   entity list         [--type T] [--scope S]
+  entity rename       --from X --to Y [--scope S]  (old name kept as alias;
+                        facts and history untouched)
+  entity alias        --name X --alias Y [--scope S]
+  entity merge        --from X --into Y [--scope S]  (repoints facts, carries
+                        names as aliases, invalidates exposed duplicates)
+  entity split        --from X --into \"A,B\" [--scope S]  (records derived-from
+                        lineage; facts stay on the source for review)
+  entity duplicates   Report likely-duplicate entity clusters
+
+  Entity lookups everywhere resolve exact names, then aliases, then a unique
+  case/separator-insensitive match (\"auth-service\" finds \"AuthService\");
+  near-match resolutions self-heal by recording the queried name as an alias.
   predicates          List the vocabulary [--category C] [--status S] [--usage]
   predicate register  Coin an :x/* predicate: --id x/uses-pattern [--definition ...]
   episode open        --source-type session-log|code|... [--ref REF]
@@ -262,6 +294,11 @@ Commands:
                                          :min-confidence {:coerce :double}}}
    {:cmds ["entity" "ensure"] :fn cmd-entity-ensure}
    {:cmds ["entity" "list"] :fn cmd-entity-list}
+   {:cmds ["entity" "rename"] :fn cmd-entity-rename}
+   {:cmds ["entity" "alias"] :fn cmd-entity-alias}
+   {:cmds ["entity" "merge"] :fn cmd-entity-merge}
+   {:cmds ["entity" "split"] :fn cmd-entity-split}
+   {:cmds ["entity" "duplicates"] :fn cmd-entity-duplicates}
    {:cmds ["predicates"] :fn cmd-predicates :spec {:usage {:coerce :boolean}}}
    {:cmds ["predicate" "register"] :fn cmd-predicate-register}
    {:cmds ["episode" "open"] :fn cmd-episode-open}

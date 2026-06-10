@@ -80,6 +80,58 @@
       (let [again (logic/bfs-step next-state [fact] (logic/fact-filter {:at t1}) 2)]
         (is (empty? (:frontier again)))))))
 
+(deftest entity-name-normalization
+  (is (= "authservice"
+         (logic/normalize-entity-name "AuthService")
+         (logic/normalize-entity-name "auth-service")
+         (logic/normalize-entity-name "auth_service")
+         (logic/normalize-entity-name "Auth Service")))
+  (is (= "memgraphcore" (logic/normalize-entity-name "memgraph.core"))))
+
+(deftest entity-match-precedence
+  (let [auth {:id "e1" :name "AuthService" :type :service :aliases ["auth"]}
+        other {:id "e2" :name "auth-service" :type :service :aliases []}
+        pick (fn [name cands & [type]]
+               (logic/pick-entity-match
+                {:name name :norm (logic/normalize-entity-name name) :type type}
+                cands))]
+    (testing "exact name beats everything"
+      (is (= [:exact "e2"] ((juxt :via (comp :id :entity))
+                            (pick "auth-service" [auth other])))))
+    (testing "alias beats normalized"
+      (is (= [:alias "e1"] ((juxt :via (comp :id :entity)) (pick "auth" [auth])))))
+    (testing "unique normalized match resolves"
+      (is (= [:normalized "e1"] ((juxt :via (comp :id :entity)) (pick "auth_service" [auth])))))
+    (testing "ambiguous normalized match resolves to nothing"
+      (is (nil? (pick "auth_service" [auth other]))))
+    (testing "type incompatibility blocks a normalized match"
+      (is (nil? (pick "auth_service" [auth] :file)))
+      (is (some? (pick "auth_service" [auth] :service))))))
+
+(deftest duplicate-collapse-keeps-the-earliest
+  (let [fact (fn [id recorded & {:as over}]
+               (merge {:id id :subject {:id "e1"} :predicate :core/depends-on
+                       :object-kind :entity :object-ref {:id "e2"}
+                       :scope "project" :epistemic :observation
+                       :t-valid t0 :recorded-at recorded :confidence 0.8}
+                      over))
+        facts [(fact "f-early" t0)
+               (fact "f-late" t1)
+               (fact "f-other-scope" t1 :scope "module:x")
+               (fact "f-dead" t0 :t-invalid t1)]]
+    (is (= ["f-late"] (logic/collapse-duplicates-plan facts #inst "2026-12-01"))
+        "only true duplicates collapse; scope-distinct and invalidated facts don't")))
+
+(deftest duplicate-entity-clusters
+  (let [entities [{:id "e1" :name "FooBar" :scope "project"}
+                  {:id "e2" :name "foo-bar" :scope "project"}
+                  {:id "e3" :name "foo-bar" :scope "other"}]]
+    (is (= [{:normalized "foobar" :scope "project"
+             :entities [{:id "e1" :name "FooBar"}
+                        {:id "e2" :name "foo-bar"}]}]
+           (logic/entity-duplicate-clusters entities))
+        "clusters are per-scope")))
+
 (deftest open-conflicts-pairs-valid-facts
   (let [facts [{:id "f-new" :conflicts ["f-old" "f-dead" "f-missing"]
                 :t-valid t0 :confidence 0.8}

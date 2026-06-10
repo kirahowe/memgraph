@@ -5,9 +5,6 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
 
 ## Next up
 
-- [ ] **Entity resolution.** `ensure-entity` is exact name+scope match by
-      design. Aliases, renames, and split identities (`UserService` →
-      `UserReadService` + `UserWriteService`) belong behind that abstraction.
 - [ ] **Failure ingester.** When agent work is rejected or reverted, extract
       why — this is where procedural memory grows from.
 - [ ] **Decision-record (ADR) ingester.** Highest-authority source; parse ADR
@@ -58,3 +55,8 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       full-text searchable), judges open conflicts, decays stale confidence,
       and reports `x/*` promotion candidates. Pattern promotion to procedural
       memory remains future work alongside the promotion command.
+- [x] Entity resolution: layered lookup (exact → alias → unique normalized
+      match, type-guarded; ambiguity never guesses), write-path self-healing
+      aliases, and curation verbs — `entity rename` / `alias` / `merge`
+      (repoint + collapse duplicates) / `split` (derived-from lineage) /
+      `duplicates` (cluster report).

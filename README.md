@@ -131,8 +131,14 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
   as twins — nothing to keep consistent on invalidation.
 - **`has-status` is a predicate**, so ADR status history accumulates
   bi-temporally and status changes flow through the conflict machinery.
-- **`ensure-entity` matches on exact name+scope**; entity resolution
-  (renames, splits, aliases) will live behind it.
+- **Entity resolution is layered**: lookups resolve exact names, then aliases,
+  then a unique case/separator-insensitive match (type-guarded, so a namespace
+  can't silently match a class); ambiguity never guesses. Write-path
+  near-matches self-heal by recording the queried name as an alias. Curation
+  verbs handle the rest: `entity rename` keeps the old name as an alias with
+  facts and history intact, `entity merge` repoints facts and collapses the
+  exposed duplicates non-lossily, `entity split` records `derived-from`
+  lineage, and `entity duplicates` reports likely-duplicate clusters.
 
 ## Ingestion tiers
 

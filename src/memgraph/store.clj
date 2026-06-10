@@ -7,7 +7,7 @@
 
   Wire shapes:
 
-  entity    {:id :name :type :scope}
+  entity    {:id :name :type :scope :aliases [str]}
   fact      {:id :subject <entity> :predicate kw :object-kind :entity|:literal
              :object-ref <entity>|nil :object-lit str|nil
              :t-valid Date :t-invalid Date|nil :recorded-at Date
@@ -23,6 +23,20 @@
     "Exact name+scope match or create. ent = {:name :type :scope}. Returns entity.")
   (-get-entity [s name scope]
     "Entity by exact name+scope, or nil.")
+  (-find-entities [s name scope]
+    "Candidate entities for resolution: name or alias matches exactly, or
+    normalizes (logic/normalize-entity-name) to the same form as the input.
+    Over-returning is fine — precedence and ambiguity are decided purely in
+    logic/pick-entity-match.")
+  (-update-entity [s entity-id updates]
+    "Apply {:name str, :type kw, :add-aliases [str]} to an entity. Stores
+    maintain any derived lookup fields (normalized names, indexes).")
+  (-repoint-facts [s from-entity-id to-entity-id]
+    "Re-reference every fact whose subject or object is from-entity onto
+    to-entity (the merge primitive). Returns the number of facts touched.")
+  (-delete-entity [s entity-id]
+    "Remove an entity row (the merged-away husk; its names live on as
+    aliases of the survivor). Facts are never deleted.")
   (-list-entities [s opts]
     "All entities. opts {:type :scope} as exact filters.")
   (-insert-fact [s fact]

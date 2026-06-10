@@ -206,6 +206,69 @@
    :facts (vec (vals edges))})
 
 ;; ---------------------------------------------------------------------------
+;; Entity resolution
+;; ---------------------------------------------------------------------------
+
+(defn normalize-entity-name
+  "Equivalence class for near-match entity lookup: lowercase, separators
+  stripped. \"AuthService\", \"auth-service\" and \"auth_service\" all
+  normalize to \"authservice\"."
+  [s]
+  (-> (str s) str/lower-case (str/replace #"[\s\-_./]+" "")))
+
+(defn pick-entity-match
+  "Resolution order over candidate entities: exact name, exact alias, then a
+  UNIQUE normalized match guarded by type compatibility (a namespace must not
+  silently match a class). Ambiguity resolves to nothing — never guess.
+  Returns {:entity e :via :exact|:alias|:normalized} or nil."
+  [{:keys [name norm type]} candidates]
+  (let [type-ok? (fn [e] (or (nil? type) (nil? (:type e)) (= type (:type e))))
+        norm-of (fn [e] (cons (normalize-entity-name (:name e))
+                              (map normalize-entity-name (:aliases e))))
+        exact (first (filter #(= name (:name %)) candidates))
+        alias-hit (first (filter #(some #{name} (:aliases %)) candidates))
+        norm-hits (filterv #(and (type-ok? %) (some #{norm} (norm-of %)))
+                           candidates)]
+    (cond
+      exact {:entity exact :via :exact}
+      alias-hit {:entity alias-hit :via :alias}
+      (= 1 (count norm-hits)) {:entity (first norm-hits) :via :normalized}
+      :else nil)))
+
+(defn entity-duplicate-clusters
+  "Entities sharing a normalized name within a scope — merge candidates for
+  human review."
+  [entities]
+  (->> entities
+       (group-by (fn [e] [(:scope e) (normalize-entity-name (:name e))]))
+       (keep (fn [[[scope norm] es]]
+               (when (> (count es) 1)
+                 {:normalized norm
+                  :scope scope
+                  :entities (mapv #(select-keys % [:id :name :type]) es)})))
+       vec))
+
+(defn collapse-duplicates-plan
+  "After a merge repoints facts, the same claim can exist twice. Plan the
+  collapse: among currently-valid facts identical in subject, predicate,
+  object, scope and epistemic class, keep the earliest-recorded and
+  invalidate the rest."
+  [facts at]
+  (->> facts
+       (filter #(fact-valid-at? % at))
+       (group-by (fn [f] [(get-in f [:subject :id])
+                          (:predicate f)
+                          (:object-kind f)
+                          (or (get-in f [:object-ref :id]) (:object-lit f))
+                          (:scope f)
+                          (:epistemic f)]))
+       vals
+       (mapcat (fn [group]
+                 (when (> (count group) 1)
+                   (rest (sort-by (comp ms :recorded-at) group)))))
+       (mapv :id)))
+
+;; ---------------------------------------------------------------------------
 ;; Conflicts
 ;; ---------------------------------------------------------------------------
 

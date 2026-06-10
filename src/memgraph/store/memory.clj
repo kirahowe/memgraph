@@ -1,23 +1,36 @@
 (ns memgraph.store.memory
   "In-memory Store implementation backed by an atom of plain maps. Exists to
   validate the storage abstraction and to run the test suite without the
-  Datalevin pod. Facts are stored directly in the wire shape."
+  Datalevin pod.
+
+  Facts are stored in the wire shape but their :subject/:object-ref entity
+  maps are joined against the live entity table at read time — mirroring the
+  ref semantics of the Datalevin store, so renames and merges are reflected
+  in previously-written facts in both backends."
   (:require [clojure.string :as str]
+            [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
 (defn- index-key [name scope] [name scope])
 
-(defn- facts-for [state entity-id {:keys [direction predicate]}]
+(defn- hydrate [st f]
+  (cond-> f
+    (:subject f)
+    (assoc :subject (get-in st [:entities (get-in f [:subject :id])] (:subject f)))
+    (:object-ref f)
+    (assoc :object-ref (get-in st [:entities (get-in f [:object-ref :id])] (:object-ref f)))))
+
+(defn- facts-for [st entity-id {:keys [direction predicate]}]
   (let [direction (or direction :out)
-        fs (vals (:facts state))
         out? #(= entity-id (get-in % [:subject :id]))
         in? #(= entity-id (get-in % [:object-ref :id]))
         dir-pred (case direction
                    :out out?
                    :in in?
                    :both #(or (out? %) (in? %)))]
-    (cond->> (filter dir-pred fs)
-      predicate (filter #(= predicate (:predicate %))))))
+    (cond->> (filter dir-pred (vals (:facts st)))
+      predicate (filter #(= predicate (:predicate %)))
+      true (map #(hydrate st %)))))
 
 (defn- substring-match [q s]
   (and s (str/includes? (str/lower-case (str s)) (str/lower-case q))))
@@ -34,13 +47,70 @@
                        (assoc-in [:entities id :type] type))
                      (let [id (str "e-" (random-uuid))]
                        (-> st
-                           (assoc-in [:entities id] {:id id :name name :type type :scope scope})
+                           (assoc-in [:entities id]
+                                     {:id id :name name :type type :scope scope :aliases []})
                            (assoc-in [:by-name-scope k] id))))))
           (as-> st (get-in st [:entities (get-in st [:by-name-scope k])])))))
 
   (-get-entity [_ name scope]
     (let [st @state]
       (get-in st [:entities (get-in st [:by-name-scope (index-key name scope)])])))
+
+  (-find-entities [_ name scope]
+    (let [norm (logic/normalize-entity-name name)
+          matches? (fn [e]
+                     (or (= name (:name e))
+                         (some #{name} (:aliases e))
+                         (= norm (logic/normalize-entity-name (:name e)))
+                         (some #(= norm (logic/normalize-entity-name %)) (:aliases e))))]
+      (->> (vals (:entities @state))
+           (filter #(= scope (:scope %)))
+           (filter matches?)
+           vec)))
+
+  (-update-entity [_ entity-id {:keys [name type add-aliases]}]
+    (swap! state
+           (fn [st]
+             (let [e (get-in st [:entities entity-id])
+                   renamed? (and name (not= name (:name e)))]
+               (cond-> (update-in st [:entities entity-id]
+                                  (fn [e]
+                                    (cond-> e
+                                      name (assoc :name name)
+                                      type (assoc :type type)
+                                      (seq add-aliases)
+                                      (update :aliases #(vec (distinct (into (vec %) add-aliases)))))))
+                 renamed?
+                 (-> (update :by-name-scope dissoc (index-key (:name e) (:scope e)))
+                     (assoc-in [:by-name-scope (index-key name (:scope e))] entity-id))))))
+    entity-id)
+
+  (-repoint-facts [_ from-id to-id]
+    (let [affected (->> (vals (:facts @state))
+                        (filter #(or (= from-id (get-in % [:subject :id]))
+                                     (= from-id (get-in % [:object-ref :id]))))
+                        (mapv :id))]
+      (swap! state update :facts
+             (fn [facts]
+               (reduce (fn [fs id]
+                         (update fs id
+                                 (fn [f]
+                                   (cond-> f
+                                     (= from-id (get-in f [:subject :id]))
+                                     (assoc :subject {:id to-id})
+                                     (= from-id (get-in f [:object-ref :id]))
+                                     (assoc :object-ref {:id to-id})))))
+                       facts affected)))
+      (count affected)))
+
+  (-delete-entity [_ entity-id]
+    (swap! state
+           (fn [st]
+             (let [e (get-in st [:entities entity-id])]
+               (-> st
+                   (update :entities dissoc entity-id)
+                   (update :by-name-scope dissoc (index-key (:name e) (:scope e)))))))
+    entity-id)
 
   (-list-entities [_ {:keys [type scope]}]
     (cond->> (vals (:entities @state))
@@ -78,7 +148,8 @@
     fact-id)
 
   (-all-facts [_]
-    (vec (vals (:facts @state))))
+    (let [st @state]
+      (mapv #(hydrate st %) (vals (:facts st)))))
 
   (-open-episode [_ ep]
     (swap! state assoc-in [:episodes (:id ep)] ep)
@@ -110,9 +181,13 @@
     (get-in @state [:predicates (:id pred)]))
 
   (-search [_ query _opts]
-    (let [st @state]
-      {:entities (vec (filter #(substring-match query (:name %)) (vals (:entities st))))
-       :facts (vec (filter #(substring-match query (:object-lit %)) (vals (:facts st))))
+    (let [st @state
+          ent-match? (fn [e] (or (substring-match query (:name e))
+                                 (some #(substring-match query %) (:aliases e))))]
+      {:entities (vec (filter ent-match? (vals (:entities st))))
+       :facts (->> (vals (:facts st))
+                   (filter #(substring-match query (:object-lit %)))
+                   (mapv #(hydrate st %)))
        :episodes (vec (filter #(substring-match query (:summary %)) (vals (:episodes st))))}))
 
   (-stats [_]
