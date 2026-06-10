@@ -206,6 +206,23 @@
    :facts (vec (vals edges))})
 
 ;; ---------------------------------------------------------------------------
+;; Conflicts
+;; ---------------------------------------------------------------------------
+
+(defn open-conflicts
+  "Conflict pairs still awaiting resolution: a flagged fact and the candidate
+  it conflicts with, where both are valid at `at`. (Conflict links live on
+  the newer fact, so :fact is always the newer side.)"
+  [facts at]
+  (let [by-id (into {} (map (juxt :id identity)) facts)]
+    (vec (for [f facts
+               :when (fact-valid-at? f at)
+               cid (:conflicts f)
+               :let [c (by-id cid)]
+               :when (and c (fact-valid-at? c at))]
+           {:fact f :candidate c}))))
+
+;; ---------------------------------------------------------------------------
 ;; Maintenance plans
 ;; ---------------------------------------------------------------------------
 

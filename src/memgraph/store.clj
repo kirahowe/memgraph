@@ -36,6 +36,8 @@
     "Close the validity interval: set :t-invalid and :invalidation-reason.")
   (-link-conflicts [s fact-id conflict-ids]
     "Record conflict links from fact-id to each id in conflict-ids.")
+  (-unlink-conflicts [s fact-id conflict-ids]
+    "Remove conflict links from fact-id to each id in conflict-ids.")
   (-update-confidence [s fact-id confidence])
   (-all-facts [s])
   (-open-episode [s ep]

@@ -5,14 +5,10 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
 
 ## Next up
 
-- [ ] **Pluggable LLM judge on the semantic-conflict path.** `assert-fact`
-      already returns `:candidates` on flag; add an optional
-      `judge(fact-a, fact-b) -> {relation, confidence}` that enriches flagged
-      conflicts, defaulting to the same subscription-as-judge mechanism as the
-      session extractor.
 - [ ] **Consolidation (Dreaming-style).** `consolidate` is a stub: episode
       summarization on close, repeated-pattern promotion to procedural memory,
-      reconcile + decay in one offline pass. Depends on the LLM judge.
+      reconcile + decay in one offline pass. The LLM machinery it needs
+      (`memgraph.llm`) now exists.
 - [ ] **Entity resolution.** `ensure-entity` is exact name+scope match by
       design. Aliases, renames, and split identities (`UserService` →
       `UserReadService` + `UserWriteService`) belong behind that abstraction.
@@ -56,3 +52,8 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       reconciles the store against the new analysis and invalidates
       code-sourced facts it no longer produces (deleted files, removed
       requires, dropped namespaces). Non-lossy; history retains them.
+- [x] LLM judge on the semantic-conflict path (`conflicts` + `judge`):
+      classifies open conflict pairs as contradicts / duplicate / supersedes /
+      compatible. Report-only by default; `--resolve` acts above a confidence
+      gate and never auto-resolves contradictions. Shared LLM machinery in
+      `memgraph.llm` (`$MEMGRAPH_LLM_CMD`).

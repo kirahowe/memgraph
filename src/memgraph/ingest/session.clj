@@ -7,20 +7,19 @@
 
   The default extractor is `claude -p` — an already-authenticated agent CLI
   (subscription-as-judge, ~$0 marginal). Override with --extractor or
-  $MEMGRAPH_EXTRACTOR_CMD; tests inject :extractor-fn and never shell out.
+  $MEMGRAPH_LLM_CMD; tests inject :extractor-fn and never shell out.
 
   Session-derived facts are second-class evidence by design: confidence is
   capped at 0.7 and source-type is forced to :session-log."
-  (:require [babashka.process :as p]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clojure.string :as str]
             [memgraph.core :as core]
+            [memgraph.llm :as llm]
             [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
 (def max-confidence 0.7)
 (def default-confidence 0.6)
-(def default-extractor "claude -p")
 
 ;; ---------------------------------------------------------------------------
 ;; Pure: transcript normalization
@@ -120,15 +119,6 @@
 ;; Shell: extractor process + ingestion
 ;; ---------------------------------------------------------------------------
 
-(defn- run-extractor! [cmd prompt]
-  (let [{:keys [exit out err]} @(p/process (p/tokenize cmd)
-                                           {:in prompt :out :string :err :string})]
-    (when-not (zero? exit)
-      (logic/fail (str "Extractor command failed: " cmd)
-                  {:type :extractor-failed :exit exit
-                   :stderr (str/trim (or err ""))}))
-    out))
-
 (defn extract!
   "Run the pluggable extractor over a transcript and ingest the results.
   opts: :file (path; stdin when absent) | :transcript (string, wins over :file)
@@ -138,10 +128,7 @@
   [s {:keys [file transcript ref extractor extractor-fn dry-run]}]
   (let [content (or transcript (if file (slurp file) (slurp *in*)))
         run (or extractor-fn
-                (partial run-extractor!
-                         (or extractor
-                             (System/getenv "MEMGRAPH_EXTRACTOR_CMD")
-                             default-extractor)))
+                (partial llm/complete! (llm/command extractor)))
         prompt (extraction-prompt (->transcript content)
                                   (store/-list-predicates s {:status :stable}))
         {:keys [facts rejected]} (prepare-facts (parse-extraction (run prompt)))]

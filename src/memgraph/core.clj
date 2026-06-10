@@ -209,6 +209,14 @@
 (defn search [s query opts]
   (store/-search s query opts))
 
+(defn conflicts
+  "Open conflicts: flagged facts whose conflicting candidates are still
+  valid, awaiting a judge or a human."
+  [s]
+  (let [open (logic/open-conflicts (store/-all-facts s) (now))]
+    {:open (count open)
+     :conflicts open}))
+
 (defn invalidate [s {:keys [fact-id reason]}]
   (when (str/blank? (str fact-id))
     (logic/fail "fact-id required" {:type :missing-fact-id}))
@@ -280,7 +288,8 @@
    :open-episodes (->> (store/-list-episodes s) (remove :closed-at) (mapv :id))})
 
 (defn stats [s]
-  (store/-stats s))
+  (assoc (store/-stats s)
+         :open-conflicts (count (logic/open-conflicts (store/-all-facts s) (now)))))
 
 (defn dump
   "Export everything as a seq of typed records (the portability path)."

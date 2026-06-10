@@ -93,6 +93,16 @@
   (with-store opts
     (fn [s] (emit opts (core/invalidate s (select-keys opts [:fact-id :reason]))))))
 
+(defn cmd-conflicts [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/conflicts s)))))
+
+(defn cmd-judge [{:keys [opts]}]
+  (let [judge (requiring-resolve 'memgraph.judge/judge-conflicts!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (judge s (select-keys opts [:command :resolve :min-confidence])))))))
+
 (defn cmd-entity-ensure [{:keys [opts]}]
   (with-store opts
     (fn [s] (emit opts (core/ensure-entity s {:name (:name opts)
@@ -193,6 +203,14 @@ Commands:
   history             All versions of (subject, predicate): --subject S --predicate P
   search              Full-text search: memgraph search \"redis migration\"
   invalidate          Close a fact's validity interval: --fact-id F [--reason R]
+  conflicts           List open conflicts (flagged facts with still-valid candidates)
+  judge               LLM-judge open conflicts: relation contradicts|duplicate|
+                        supersedes|compatible per pair. Reports only, unless
+                        --resolve, which acts on verdicts at/above
+                        --min-confidence (0.8): invalidates duplicates and
+                        superseded facts, unlinks compatible pairs. A
+                        contradicts verdict is never auto-resolved.
+                        [--command \"claude -p\"] (default $MEMGRAPH_LLM_CMD)
   entity ensure       --name N [--type T] [--scope S]
   entity list         [--type T] [--scope S]
   predicates          List the vocabulary [--category C] [--status S] [--usage]
@@ -206,7 +224,7 @@ Commands:
   session-extract     LLM-extract durable facts from a session transcript
                         (plain text or Claude Code session JSONL): --file F | stdin
                         [--ref ID] [--dry-run] [--extractor \"claude -p\"]
-                        Default extractor: $MEMGRAPH_EXTRACTOR_CMD or \"claude -p\".
+                        Default extractor: $MEMGRAPH_LLM_CMD or \"claude -p\".
                         Extracted facts are capped at 0.7 confidence, source-type
                         session-log. Use --dry-run to review before ingesting.
   dump                Export everything as JSONL [--out FILE]
@@ -228,6 +246,9 @@ Commands:
    {:cmds ["history"] :fn cmd-history}
    {:cmds ["search"] :fn cmd-search}
    {:cmds ["invalidate"] :fn cmd-invalidate}
+   {:cmds ["conflicts"] :fn cmd-conflicts}
+   {:cmds ["judge"] :fn cmd-judge :spec {:resolve {:coerce :boolean}
+                                         :min-confidence {:coerce :double}}}
    {:cmds ["entity" "ensure"] :fn cmd-entity-ensure}
    {:cmds ["entity" "list"] :fn cmd-entity-list}
    {:cmds ["predicates"] :fn cmd-predicates :spec {:usage {:coerce :boolean}}}

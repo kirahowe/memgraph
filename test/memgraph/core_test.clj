@@ -99,6 +99,19 @@
         (is (= :superseded (:status r)))
         (is (= 1 (count (:facts (core/get-facts s {:entity "ADR-7"})))))))))
 
+(deftest conflict-links-round-trip
+  (with-stores [s]
+    (core/assert-fact s {:subject "ADR-9" :predicate :core/has-status :object "accepted"})
+    (let [r (core/assert-fact s {:subject "ADR-9" :predicate :core/has-status
+                                 :object "rejected"})]
+      (is (= :flagged (:status r)))
+      (is (= 1 (:open (core/conflicts s))))
+      (testing "unlinking closes the conflict without invalidating either side"
+        (store/-unlink-conflicts s (get-in r [:fact :id])
+                                 (mapv :id (:candidates r)))
+        (is (zero? (:open (core/conflicts s))))
+        (is (= 2 (count (:facts (core/get-facts s {:entity "ADR-9"})))))))))
+
 (deftest unknown-predicate-did-you-mean
   (with-stores [s]
     (let [e (try (core/assert-fact s {:subject "A" :predicate :core/depnds-on :object "B"})

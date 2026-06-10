@@ -211,6 +211,13 @@
                         :fact/conflicts (mapv (fn [cid] [:fact/id cid]) conflict-ids)}])
     fact-id)
 
+  (-unlink-conflicts [_ fact-id conflict-ids]
+    (d/transact! conn (mapv (fn [cid]
+                              [:db/retract [:fact/id fact-id]
+                               :fact/conflicts [:fact/id cid]])
+                            conflict-ids))
+    fact-id)
+
   (-update-confidence [_ fact-id confidence]
     (d/transact! conn [{:fact/id fact-id :fact/confidence (double confidence)}])
     fact-id)

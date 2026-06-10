@@ -77,6 +77,10 @@ Choose the epistemic class deliberately — it sets the conflict behavior:
   NOT pick a winner yourself — show the user the `candidates` and ask which
   holds. Resolve with `bin/memgraph invalidate --fact-id <loser> --reason "..."`
   or re-assert with `--on-conflict supersede` once the user rules.
+- Conflicts accumulate across sessions: `bin/memgraph conflicts` lists what's
+  open. `bin/memgraph judge` classifies each pair (contradicts / duplicate /
+  supersedes / compatible); add `--resolve` to auto-close the easy ones —
+  contradictions always remain for the user to decide.
 - `did-you-mean` on an unknown predicate: use the suggestion if it matches your
   intent. For a genuinely new relation, coin it in the staging namespace:
   `--predicate x/my-relation` (auto-registers with :testing status). Never

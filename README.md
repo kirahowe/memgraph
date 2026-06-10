@@ -69,6 +69,15 @@ from the epistemic class:
 - Caller override: `--on-conflict supersede|flag|ignore`.
 - Multi-valued predicates (e.g. `depends-on`) accumulate; exact duplicates no-op.
 
+Flagged conflicts stay open until resolved. `memgraph conflicts` lists them;
+`memgraph judge` runs an LLM over each pair and classifies the relation —
+`contradicts`, `duplicate`, `supersedes`, or `compatible`. By default it only
+reports; with `--resolve` it invalidates duplicates and superseded facts and
+unlinks compatible pairs, gated by `--min-confidence` (0.8). A `contradicts`
+verdict is never auto-resolved — genuine contradictions always go to the
+human. The judge command is pluggable like the extractor (`--command` /
+`$MEMGRAPH_LLM_CMD`, default `claude -p`).
+
 ## The vocabulary
 
 22 curated `core/*` predicates across four categories (structural, procedural,
@@ -138,7 +147,7 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
    decisions, gotchas, conventions) from a session transcript — plain text or
    Claude Code session JSONL. The extractor is pluggable: defaults to an
    already-authenticated `claude -p` (subscription-as-judge, ~$0 marginal),
-   overridable via `--extractor` / `$MEMGRAPH_EXTRACTOR_CMD`. Session-derived
+   overridable via `--extractor` / `$MEMGRAPH_LLM_CMD`. Session-derived
    facts are second-class evidence by design: confidence capped at 0.7,
    source-type `session-log`. `--dry-run` shows what would be ingested.
 3. **`ingest`** — batch JSONL (file or stdin) under one episode. Each line
@@ -148,6 +157,7 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
 
 ## Maintenance
 
+- `judge` — LLM review of open conflicts (see "How conflicts resolve").
 - `decay` — soft forgetting: confidence decays on stale facts; commitments and
   decision-record facts never decay.
 - `consolidate` — stubbed surface for Dreaming-style offline consolidation

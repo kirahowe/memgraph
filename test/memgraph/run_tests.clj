@@ -2,6 +2,7 @@
   (:require [clojure.test :as t]
             [memgraph.code-ingest-test]
             [memgraph.core-test]
+            [memgraph.judge-test]
             [memgraph.logic-test]
             [memgraph.session-test]))
 
@@ -9,5 +10,6 @@
   (let [{:keys [fail error]} (t/run-tests 'memgraph.logic-test
                                           'memgraph.core-test
                                           'memgraph.code-ingest-test
-                                          'memgraph.session-test)]
+                                          'memgraph.session-test
+                                          'memgraph.judge-test)]
     (System/exit (if (zero? (+ fail error)) 0 1))))

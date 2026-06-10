@@ -68,6 +68,11 @@
            (fnil into []) conflict-ids)
     fact-id)
 
+  (-unlink-conflicts [_ fact-id conflict-ids]
+    (swap! state update-in [:facts fact-id :conflicts]
+           (fn [ids] (vec (remove (set conflict-ids) ids))))
+    fact-id)
+
   (-update-confidence [_ fact-id confidence]
     (swap! state assoc-in [:facts fact-id :confidence] (double confidence))
     fact-id)

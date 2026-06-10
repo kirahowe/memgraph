@@ -80,6 +80,18 @@
       (let [again (logic/bfs-step next-state [fact] (logic/fact-filter {:at t1}) 2)]
         (is (empty? (:frontier again)))))))
 
+(deftest open-conflicts-pairs-valid-facts
+  (let [facts [{:id "f-new" :conflicts ["f-old" "f-dead" "f-missing"]
+                :t-valid t0 :confidence 0.8}
+               {:id "f-old" :t-valid t0 :confidence 0.8}
+               {:id "f-dead" :t-valid t0 :t-invalid t1 :confidence 0.8}]]
+    (is (= [{:fact "f-new" :candidate "f-old"}]
+           (mapv #(-> % (update :fact :id) (update :candidate :id))
+                 (logic/open-conflicts facts #inst "2026-12-01")))
+        "invalidated and missing candidates drop out")
+    (is (empty? (logic/open-conflicts facts #inst "2025-01-01"))
+        "nothing is in conflict before the facts are valid")))
+
 (deftest normalization
   (is (= {:object-kind "entity"} (logic/normalize-keys {:object_kind "entity"})))
   (is (= {:epistemic "preference"}
