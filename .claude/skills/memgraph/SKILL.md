@@ -53,8 +53,14 @@ Choose the epistemic class deliberately — it sets the conflict behavior:
   bin/memgraph assert --subject api-layer --predicate decided-against \
     --object GraphQL --class commitment --source-type decision-record
   ```
-- **End of a substantial session**: batch what was learned under one episode
-  (JSONL via stdin, snake_case or kebab-case keys both work):
+- **End of a substantial session**: extract durable knowledge from the
+  transcript (preferred — review with `--dry-run` first):
+  ```
+  bin/memgraph session-extract --file transcript.txt --ref <session-id> --dry-run
+  bin/memgraph session-extract --file transcript.txt --ref <session-id>
+  ```
+  Or batch hand-written facts under one episode (JSONL via stdin or file,
+  snake_case or kebab-case keys, `class` = epistemic class):
   ```
   bin/memgraph ingest --source-type session-log --ref <session-id> --file facts.jsonl
   ```

@@ -84,12 +84,21 @@ its place.
 
 ## Architecture
 
+Functional core, imperative shell. All decision logic — conflict resolution,
+epistemic/object-kind rules, bi-temporal filters, BFS folds, decay plans — is
+pure functions over plain values in `memgraph.logic` (time and fresh ids are
+passed in; decisions come back as effect plans). `memgraph.core` is the thin
+shell that gathers store reads, asks logic for a decision, and executes the
+plan. Mutation is concentrated there and in the store implementations.
+
 ```
 CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/out
         │
-   core operations           src/memgraph/core.clj       ALL semantics: validation,
-        │                                                conflict policy, bi-temporal
-        │                                                filtering, BFS traversal
+   imperative shell          src/memgraph/core.clj       gather reads → pure decision
+        │                                                → execute effect plan
+   functional core           src/memgraph/logic.clj      PURE: conflict policy, temporal
+        │                    src/memgraph/predicates.clj filters, BFS folds, decay plans,
+        │                                                vocabulary + validation
    ┌────┴─────────┐
    │ Store protocol│         src/memgraph/store.clj      the swappable seam
    └────┬─────────┘
@@ -124,9 +133,17 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
    LLM): `defined-in`, `depends-on`, `written-in` facts at 0.95 confidence
    under a `:code` episode ref'd to the git SHA. Idempotent; a namespace that
    moves files supersedes its old location automatically.
-2. **`ingest`** — batch JSONL (file or stdin) under one episode, e.g. session-
-   end extraction. Each line goes through the full conflict machinery.
-3. **`assert`** — one fact, interactively or from a skill.
+2. **`session-extract`** — LLM extraction of durable knowledge (preferences,
+   decisions, gotchas, conventions) from a session transcript — plain text or
+   Claude Code session JSONL. The extractor is pluggable: defaults to an
+   already-authenticated `claude -p` (subscription-as-judge, ~$0 marginal),
+   overridable via `--extractor` / `$MEMGRAPH_EXTRACTOR_CMD`. Session-derived
+   facts are second-class evidence by design: confidence capped at 0.7,
+   source-type `session-log`. `--dry-run` shows what would be ingested.
+3. **`ingest`** — batch JSONL (file or stdin) under one episode. Each line
+   goes through the full conflict machinery; `class` is accepted as an alias
+   for the epistemic field.
+4. **`assert`** — one fact, interactively or from a skill.
 
 ## Maintenance
 
@@ -140,10 +157,13 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
 ## Tests
 
 ```bash
-bb test    # 16 tests / 112 assertions, run against BOTH stores
+bb test    # 25 tests / 151 assertions
 ```
 
-`MEMGRAPH_TEST_SKIP_DATALEVIN=1 bb test` runs pod-free (in-memory store only).
+The core-semantics suite runs against BOTH store implementations (the proof of
+the protocol seam); the logic suite tests pure decision functions with no store
+at all; the session suite injects a fake extractor and never shells out.
+`MEMGRAPH_TEST_SKIP_DATALEVIN=1 bb test` runs pod-free.
 
 ## Deviations from the handoff doc (v0 honesty)
 
@@ -162,6 +182,7 @@ bb test    # 16 tests / 112 assertions, run against BOTH stores
 
 ## Documents
 
+- `TODO.md` — remaining roadmap and decisions taken.
 - `docs/agent-memory-synthesis.md` — the conceptual landscape this grew from.
 - `docs/memgraph-handoff.md` — design decisions, rationale, and open forks.
 - `.claude/skills/memgraph/SKILL.md` — the usage judgment: when an agent should

@@ -8,6 +8,7 @@
             [cheshire.core :as json]
             [clojure.string :as str]
             [memgraph.core :as core]
+            [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
 (def ^:private global-spec
@@ -84,7 +85,7 @@
 (defn cmd-search [{:keys [opts args]}]
   (let [query (or (first args) (:query opts))]
     (when (str/blank? (str query))
-      (core/fail "search requires a query" {:type :missing-query}))
+      (logic/fail "search requires a query" {:type :missing-query}))
     (with-store opts
       (fn [s] (emit opts (core/search s (str query) {}))))))
 
@@ -100,7 +101,7 @@
 
 (defn cmd-entity-list [{:keys [opts]}]
   (with-store opts
-    (fn [s] (emit opts (store/-list-entities s {:type (core/->kw (:type opts))
+    (fn [s] (emit opts (store/-list-entities s {:type (logic/->kw (:type opts))
                                                 :scope (:scope opts)})))))
 
 (defn cmd-predicates [{:keys [opts]}]
@@ -125,18 +126,13 @@
   (with-store opts
     (fn [s] (emit opts (store/-list-episodes s)))))
 
-(defn- normalize-keys
-  "Accept snake_case or kebab-case keys in ingest JSON lines."
-  [m]
-  (into {} (map (fn [[k v]] [(keyword (str/replace (name k) "_" "-")) v])) m))
-
 (defn cmd-ingest [{:keys [opts]}]
   (let [lines (if-let [f (:file opts)]
                 (str/split-lines (slurp f))
                 (line-seq (java.io.BufferedReader. *in*)))
         facts (into []
                     (comp (remove str/blank?)
-                          (map #(normalize-keys (json/parse-string % true))))
+                          (map #(logic/normalize-keys (json/parse-string % true))))
                     lines)]
     (with-store opts
       (fn [s]
@@ -152,6 +148,12 @@
                                        :summary (str "code-analysis pass: " files " files, "
                                                      (count facts) " facts from " ref)})]
           (emit opts (assoc result :files files :ref ref)))))))
+
+(defn cmd-session-extract [{:keys [opts]}]
+  (let [extract (requiring-resolve 'memgraph.ingest.session/extract!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (extract s (select-keys opts [:file :ref :extractor :dry-run])))))))
 
 (defn cmd-dump [{:keys [opts]}]
   (with-store opts
@@ -207,6 +209,12 @@ Commands:
   ingest              Batch assert JSONL (one fact per line): --file F | stdin
                         [--episode ID | --source-type T --ref R]
   ingest-code         Mechanical Clojure code analysis: [--dir src] [--scope code]
+  session-extract     LLM-extract durable facts from a session transcript
+                        (plain text or Claude Code session JSONL): --file F | stdin
+                        [--ref ID] [--dry-run] [--extractor \"claude -p\"]
+                        Default extractor: $MEMGRAPH_EXTRACTOR_CMD or \"claude -p\".
+                        Extracted facts are capped at 0.7 confidence, source-type
+                        session-log. Use --dry-run to review before ingesting.
   dump                Export everything as JSONL [--out FILE]
   stats               Store counts
   decay               Soft forgetting: [--older-than-days 90] [--factor 0.9]
@@ -235,6 +243,7 @@ Commands:
    {:cmds ["episode" "list"] :fn cmd-episode-list}
    {:cmds ["ingest-code"] :fn cmd-ingest-code}
    {:cmds ["ingest"] :fn cmd-ingest}
+   {:cmds ["session-extract"] :fn cmd-session-extract :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["dump"] :fn cmd-dump}
    {:cmds ["stats"] :fn cmd-stats}
    {:cmds ["decay"] :fn cmd-decay :spec {:older-than-days {:coerce :long}

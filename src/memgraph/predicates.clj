@@ -144,3 +144,25 @@
    :cardinality :many
    :status :testing
    :definition "Auto-registered on first use; promote to :core/* once proven."})
+
+(defn check
+  "Pure check of a predicate id against its registry row (nil when absent).
+  Returns {:ok row}, {:register row} for first-use :x/*, or {:error data} —
+  the shell decides whether to register, throw, or enrich the error with
+  :did-you-mean."
+  [pred-id row]
+  (cond
+    (and row (= :deprecated (:status row)))
+    {:error {:message (str "Predicate " pred-id " is deprecated")
+             :type :deprecated-predicate
+             :predicate pred-id
+             :replaced-by (:replaced-by row)}}
+
+    row {:ok row}
+
+    (experimental? pred-id) {:register (auto-registration pred-id)}
+
+    :else
+    {:error {:message (str "Unknown predicate " pred-id)
+             :type :unknown-predicate
+             :predicate pred-id}}))
