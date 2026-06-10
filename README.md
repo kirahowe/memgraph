@@ -112,19 +112,17 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
   protocol, so the whole stack is two fast-start native binaries. The store
   protocol keeps SQLite (or anything else) a live fallback; the test suite runs
   identically against the in-memory implementation, which is the proof of the
-  seam.
+ abstraction.
 - **Bi-temporality is modeled, not engine-native**: explicit `t-valid` /
   `t-invalid` / `recorded-at` attributes, identical in shape across backends.
 - **Objects are entities or literals** (RDF-style): traversal only follows
   entity-kind objects; preferences live as literal facts without minting junk
   nodes. Enforced at write time per the predicate registry.
 - **Inverses are computed at query time** (`--direction in|both`), not stored
-  as twins — nothing to keep consistent on invalidation (resolves handoff
-  fork #1).
+  as twins — nothing to keep consistent on invalidation.
 - **`has-status` is a predicate**, so ADR status history accumulates
-  bi-temporally and status changes flow through the conflict machinery
-  (resolves fork #2).
-- **`ensure-entity` is its own seam** with a trivial exact name+scope body for
+  bi-temporally and status changes flow through the conflict machinery.
+- **`ensure-entity` is its own abstraction** with a trivial exact name+scope body for
   now; renames/splits/aliases will live there (fork #3, deferred).
 
 ## Ingestion tiers
