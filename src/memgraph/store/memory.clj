@@ -155,6 +155,26 @@
     (let [st @state]
       (mapv #(hydrate st %) (vals (:facts st)))))
 
+  (-select-facts [_ {:keys [ids source-type scopes episodes recorded-before conflicted valid-cheap]}]
+    (let [st @state
+          ids (some-> ids set)
+          scopes (some-> scopes set)
+          episodes (some-> episodes set)
+          cut (some-> ^java.util.Date recorded-before .getTime)
+          ms-of (fn [f] (or (some-> ^java.util.Date (:recorded-at f) .getTime) 0))]
+      (->> (vals (:facts st))
+           (filter #(and (or (nil? ids) (ids (:id %)))
+                         (or (nil? source-type) (= source-type (:source-type %)))
+                         (or (nil? scopes) (scopes (:scope %)))
+                         (or (nil? episodes) (episodes (:episode %)))
+                         (or (nil? cut) (< (ms-of %) cut))
+                         (or (not conflicted) (seq (:conflicts %)))
+                         (or (not valid-cheap) (nil? (:t-invalid %)))))
+           (mapv #(hydrate st %)))))
+
+  (-predicate-usage [_]
+    (frequencies (keep :predicate (vals (:facts @state)))))
+
   (-open-episode [_ ep]
     (swap! state assoc-in [:episodes (:id ep)] ep)
     ep)

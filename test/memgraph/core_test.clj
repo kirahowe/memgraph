@@ -189,6 +189,44 @@
         (is (= 2 (count (store/-get-facts-for s ids {:direction :out
                                                      :predicate :core/depends-on}))))))))
 
+(deftest select-facts-candidate-reads
+  (with-stores [s]
+    (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"
+                         :source-type :code :scope "code"})
+    (let [pref (core/assert-fact s {:subject "A" :predicate :core/prefers :object "x"})
+          _ (core/assert-fact s {:subject "ADR" :predicate :core/has-status :object "accepted"})
+          flag (core/assert-fact s {:subject "ADR" :predicate :core/has-status :object "rejected"})]
+      (testing "source-type + scopes narrow the set"
+        (is (= [:core/depends-on]
+               (mapv :predicate (store/-select-facts s {:source-type :code
+                                                        :scopes #{"code" "external"}})))))
+      (testing "conflicted + valid-cheap finds exactly the flagged fact"
+        (is (= [(get-in flag [:fact :id])]
+               (mapv :id (store/-select-facts s {:conflicted true :valid-cheap true})))))
+      (testing "exact ids"
+        (is (= 1 (count (store/-select-facts s {:ids [(get-in pref [:fact :id])]})))))
+      (testing "valid-cheap drops invalidated facts"
+        (core/invalidate s {:fact-id (get-in pref [:fact :id])})
+        (is (= 3 (count (store/-select-facts s {:valid-cheap true}))))
+        (is (= 4 (count (store/-select-facts s {})))))
+      (testing "recorded-before excludes fresh facts and includes backdated ones"
+        (let [old (java.util.Date. (- (System/currentTimeMillis) (* 30 86400000)))
+              cutoff (java.util.Date. (- (System/currentTimeMillis) 86400000))]
+          (store/-insert-fact s {:id "f-backdated" :subject (core/ensure-entity s {:name "A"})
+                                 :predicate :core/depends-on :object-kind :literal
+                                 :object-lit "old" :t-valid old :recorded-at old
+                                 :confidence 0.8 :epistemic :observation :scope "project"
+                                 :source-type :inferred})
+          (is (= ["f-backdated"]
+                 (mapv :id (store/-select-facts s {:recorded-before cutoff}))))))
+      (testing "episodes narrow to provenance"
+        (let [r (core/ingest s {:source-type :session-log :ref "sess"}
+                             [{:subject "E" :predicate "prefers" :object "y"}])]
+          (is (= 1 (count (store/-select-facts s {:episodes [(:episode r)]}))))))
+      (testing "predicate usage aggregates store-side"
+        (is (= 2 (get (store/-predicate-usage s) :core/depends-on)))
+        (is (= 2 (get (store/-predicate-usage s) :core/prefers)))))))
+
 (deftest literals-are-terminal-in-traversal
   (with-stores [s]
     (core/assert-fact s {:subject "A" :predicate :core/prefers :object "kebab-case"})

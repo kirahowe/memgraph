@@ -18,6 +18,7 @@
   surfacing those to the human is the point of the flag machinery."
   (:require [cheshire.core :as json]
             [clojure.string :as str]
+            [memgraph.core :as core]
             [memgraph.llm :as llm]
             [memgraph.logic :as logic]
             [memgraph.store :as store]))
@@ -138,7 +139,7 @@
                            :verdict verdict
                            :plan plan}
                     resolve (assoc :executed (not= :none (:action plan))))))
-              (logic/open-conflicts (store/-all-facts s) at))]
+              (:conflicts (core/conflicts s)))]
     {:conflicts (count results)
      :resolved (count (filter :executed results))
      :results results}))

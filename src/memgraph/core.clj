@@ -57,7 +57,7 @@
   (let [ps (store/-list-predicates s {:category (logic/->kw (:category opts))
                                       :status (logic/->kw (:status opts))})]
     (if (:usage opts)
-      (let [counts (frequencies (map :predicate (store/-all-facts s)))]
+      (let [counts (store/-predicate-usage s)]
         (mapv #(assoc % :usage (get counts (:id %) 0)) ps))
       (vec ps))))
 
@@ -342,9 +342,18 @@
 
 (defn conflicts
   "Open conflicts: flagged facts whose conflicting candidates are still
-  valid, awaiting a judge or a human."
+  valid, awaiting a judge or a human. Candidate sets come from two narrow
+  store reads (cheap-valid conflicted facts, then their linked candidates by
+  id); logic/open-conflicts re-applies the exact validity policy."
   [s]
-  (let [open (logic/open-conflicts (store/-all-facts s) (now))]
+  (let [flagged (store/-select-facts s {:conflicted true :valid-cheap true})
+        candidate-ids (vec (distinct (mapcat :conflicts flagged)))
+        candidates (if (seq candidate-ids)
+                     (store/-select-facts s {:ids candidate-ids})
+                     [])
+        deduped (vals (reduce (fn [m f] (assoc m (:id f) f)) {}
+                              (concat flagged candidates)))
+        open (logic/open-conflicts deduped (now))]
     {:open (count open)
      :conflicts open}))
 
@@ -402,17 +411,25 @@
 ;; ---------------------------------------------------------------------------
 
 (defn decay
-  "Soft forgetting: compute the plan purely over all facts, then apply it.
+  "Soft forgetting. The store narrows to cheap-valid facts recorded before
+  the cutoff; logic/decay-plan re-applies the exact policy (validity at now,
+  epistemic and source-type exemptions) over that candidate set.
   opts {:older-than-days N :factor f}."
-  [s opts]
-  (let [plan (logic/decay-plan (store/-all-facts s) (assoc opts :now (now)))]
+  [s {:keys [older-than-days factor]}]
+  (let [t (now)
+        days (long (or older-than-days 90))
+        cutoff (java.util.Date. (- (logic/ms t) (* 86400000 days)))
+        candidates (store/-select-facts s {:valid-cheap true
+                                           :recorded-before cutoff})
+        plan (logic/decay-plan candidates {:now t
+                                           :older-than-days days
+                                           :factor factor})]
     (doseq [{:keys [fact-id confidence]} plan]
       (store/-update-confidence s fact-id confidence))
     {:status :decayed :affected (count plan)}))
 
 (defn stats [s]
-  (assoc (store/-stats s)
-         :open-conflicts (count (logic/open-conflicts (store/-all-facts s) (now)))))
+  (assoc (store/-stats s) :open-conflicts (:open (conflicts s))))
 
 (defn dump
   "Export everything as a seq of typed records (the portability path)."

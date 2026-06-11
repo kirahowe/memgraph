@@ -92,17 +92,17 @@
 
 (defn promotion-candidates
   "Staging (:testing) predicates used at least min-usage times — the ones
-  worth promoting to :core/* (or pruning, if the usage is junk)."
-  [predicates facts min-usage]
-  (let [counts (frequencies (map :predicate facts))]
-    (->> predicates
-         (filter #(= :testing (:status %)))
-         (keep (fn [p]
-                 (let [n (get counts (:id p) 0)]
-                   (when (>= n min-usage)
-                     {:id (:id p) :usage n :definition (:definition p)}))))
-         (sort-by (comp - :usage))
-         vec)))
+  worth promoting to :core/* (or pruning, if the usage is junk). usage is a
+  predicate->count map (the store-side aggregate)."
+  [predicates usage min-usage]
+  (->> predicates
+       (filter #(= :testing (:status %)))
+       (keep (fn [p]
+               (let [n (get usage (:id p) 0)]
+                 (when (>= n min-usage)
+                   {:id (:id p) :usage n :definition (:definition p)}))))
+       (sort-by (comp - :usage))
+       vec))
 
 ;; ---------------------------------------------------------------------------
 ;; Shell
@@ -130,10 +130,13 @@
         :min-usage (promotion-candidate threshold, default 3)"
   [s {:keys [command summarize-fn judge-fn resolve min-confidence
              older-than-days factor min-usage]}]
-  (let [facts (store/-all-facts s)
+  (let [all-episodes (store/-list-episodes s)
+        open-ids (mapv :id (remove :closed-at all-episodes))
+        ep-facts (if (seq open-ids)
+                   (store/-select-facts s {:episodes open-ids})
+                   [])
         run (or summarize-fn (partial llm/complete! (llm/command command)))
-        episodes (summarize-episodes! s run
-                                      (plan-episodes (store/-list-episodes s) facts))
+        episodes (summarize-episodes! s run (plan-episodes all-episodes ep-facts))
         conflicts (try (judge/judge-conflicts! s {:command command
                                                   :judge-fn judge-fn
                                                   :resolve resolve
@@ -146,5 +149,5 @@
      :decay decay
      :promotion-candidates (promotion-candidates
                             (store/-list-predicates s {:status :testing})
-                            facts
+                            (store/-predicate-usage s)
                             (or min-usage default-min-usage))}))

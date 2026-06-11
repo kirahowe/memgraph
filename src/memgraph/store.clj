@@ -48,6 +48,22 @@
     "Batched -get-facts: every fact touching ANY of entity-ids, deduplicated,
     fetched in one query per direction regardless of how many ids are passed.
     The BFS frontier hands its whole level here — never loop -get-facts.")
+  (-select-facts [s criteria]
+    "Coarse, index-backed candidate-set read for maintenance paths. criteria
+    is a whitelisted map of structural attributes, ANDed:
+      :ids [fact-id]          exact fact ids
+      :source-type kw         e.g. :code
+      :scopes coll-of-str     fact scope is one of these
+      :episodes [episode-id]  provenance episode is one of these
+      :recorded-before inst   recorded earlier than this (missing recorded-at
+                              over-includes)
+      :conflicted true        carries at least one conflict link
+      :valid-cheap true       t-invalid absent — the cheap indexed check ONLY
+    Over-inclusion is allowed and expected: the pure functions in logic
+    (fact-valid-at?, decay-plan, open-conflicts, stale-facts) remain the sole
+    authority on policy and re-apply it over the candidate set.")
+  (-predicate-usage [s]
+    "Aggregate, store-side: map of predicate -> fact count.")
   (-get-history [s entity-id predicate]
     "All facts (valid + invalidated) for (subject, predicate).")
   (-invalidate [s fact-id at reason]

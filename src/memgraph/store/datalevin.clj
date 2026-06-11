@@ -36,6 +36,9 @@
    :fact/t-valid     {:db/valueType :db.type/instant}
    :fact/t-invalid   {:db/valueType :db.type/instant}
    :fact/recorded-at {:db/valueType :db.type/instant}
+   ;; derived long for indexed recorded-before selection (Datalog comparison
+   ;; predicates work on numbers, not boxed dates)
+   :fact/recorded-ms {:db/valueType :db.type/long}
    :fact/confidence  {:db/valueType :db.type/double}
    :fact/source      {:db/valueType :db.type/ref}
    :fact/source-type {:db/valueType :db.type/keyword}
@@ -135,6 +138,7 @@
     :fact/t-valid (:t-valid f)
     :fact/t-invalid (:t-invalid f)
     :fact/recorded-at (:recorded-at f)
+    :fact/recorded-ms (some-> ^java.util.Date (:recorded-at f) .getTime)
     :fact/confidence (:confidence f)
     :fact/epistemic (:epistemic f)
     :fact/scope (:scope f)
@@ -166,6 +170,42 @@
       :both (->> (concat (runner out) (runner in))
                  (reduce (fn [acc m] (assoc acc (:fact/id m) m)) {})
                  vals))))
+
+(defn- q-select
+  "Build and run one Datalog query from whitelisted structural criteria.
+  Binding clauses come first (they ground ?f), predicate clauses after; with
+  no binding criterion a grounding clause is prepended so the predicates have
+  something to range over."
+  [db {:keys [ids source-type scopes episodes recorded-before conflicted valid-cheap]}]
+  (let [acc (cond-> {:where [] :in [] :args []}
+              ids (-> (update :where conj '[?f :fact/id ?id])
+                      (update :in conj '[?id ...])
+                      (update :args conj (vec ids)))
+              source-type (-> (update :where conj '[?f :fact/source-type ?st])
+                              (update :in conj '?st)
+                              (update :args conj source-type))
+              scopes (-> (update :where conj '[?f :fact/scope ?sc])
+                         (update :in conj '[?sc ...])
+                         (update :args conj (vec scopes)))
+              episodes (-> (update :where into '[[?ep :episode/id ?epid]
+                                                 [?f :fact/source ?ep]])
+                           (update :in conj '[?epid ...])
+                           (update :args conj (vec episodes)))
+              conflicted (update :where conj '[?f :fact/conflicts _])
+              true (as-> a (if (empty? (:where a))
+                             (update a :where conj '[?f :fact/id _])
+                             a))
+              valid-cheap (update :where conj '[(missing? $ ?f :fact/t-invalid)])
+              recorded-before (-> (update :where into
+                                          '[[(get-else $ ?f :fact/recorded-ms 0) ?rms]
+                                            [(< ?rms ?cut)]])
+                                  (update :in conj '?cut)
+                                  (update :args conj (.getTime ^java.util.Date recorded-before))))
+        query (-> [:find [(list 'pull '?f fact-pull) '...] :in '$]
+                  (into (:in acc))
+                  (conj :where)
+                  (into (:where acc)))]
+    (apply d/q query db (:args acc))))
 
 (defrecord DatalevinStore [conn]
   store/Store
@@ -280,10 +320,15 @@
     fact-id)
 
   (-all-facts [_]
-    (mapv fact->wire
-          (d/q (into [:find [(list 'pull '?f fact-pull) '...]]
-                     [:where '[?f :fact/id _]])
-               (d/db conn))))
+    (mapv fact->wire (q-select (d/db conn) {})))
+
+  (-select-facts [_ criteria]
+    (mapv fact->wire (q-select (d/db conn) criteria)))
+
+  (-predicate-usage [_]
+    (into {} (d/q '[:find ?p (count ?f)
+                    :where [?f :fact/predicate ?p]]
+                  (d/db conn))))
 
   (-open-episode [_ ep]
     (d/transact! conn [(strip-nils {:episode/id (:id ep)

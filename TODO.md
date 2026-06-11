@@ -8,9 +8,11 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
 - [x] 1. Traversal chattiness: BFS now hands its whole frontier to
       `-get-facts-for` — one query per direction per level, regardless of
       frontier width.
-- [ ] 2. Maintenance paths pull the whole graph: `conflicts`, `stats`,
-      `decay`, `predicates --usage`, and `stale-facts` all use `-all-facts`
-      and filter client-side; push filters/aggregates into store queries.
+- [x] 2. Maintenance paths now read candidate sets, not the graph:
+      `-select-facts` (whitelisted structural criteria, over-inclusion
+      allowed) feeds `conflicts`/`decay`/`stale-facts`/consolidation;
+      `-predicate-usage` aggregates store-side. Policy stayed pure and
+      unmoved — logic just receives fewer facts.
 - [ ] 3. Conflict detection only fires on same-(subject, predicate)
       :one-cardinality collisions; cross-predicate and many-valued
       contradictions never reach the flag/judge pipeline.

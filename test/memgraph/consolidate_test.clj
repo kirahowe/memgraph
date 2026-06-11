@@ -43,11 +43,9 @@
   (let [predicates [{:id :x/hot :status :testing :definition "used a lot"}
                     {:id :x/cold :status :testing :definition "barely used"}
                     {:id :core/depends-on :status :stable}]
-        facts (concat (repeat 4 {:predicate :x/hot})
-                      (repeat 1 {:predicate :x/cold})
-                      (repeat 10 {:predicate :core/depends-on}))]
+        usage {:x/hot 4 :x/cold 1 :core/depends-on 10}]
     (is (= [{:id :x/hot :usage 4 :definition "used a lot"}]
-           (consolidate/promotion-candidates predicates facts 3))
+           (consolidate/promotion-candidates predicates usage 3))
         "only staging predicates above the threshold; stable ones never appear")))
 
 (defn- seeded-store []

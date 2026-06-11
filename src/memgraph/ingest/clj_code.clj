@@ -136,9 +136,12 @@
   supersede), all under a :code episode ref'd to the git SHA."
   [s {:keys [scope] :as opts}]
   (let [{:keys [ref files facts]} (analyze opts)
+        scope (or scope "code")
         at (core/now)
-        stale (stale-facts (store/-all-facts s) facts
-                           {:scope (or scope "code") :at at})]
+        candidates (store/-select-facts s {:source-type :code
+                                           :scopes #{scope "external"}
+                                           :valid-cheap true})
+        stale (stale-facts candidates facts {:scope scope :at at})]
     (doseq [id stale]
       (store/-invalidate s id at (str "code-invalidation: absent at " ref)))
     (let [result (core/ingest s {:source-type :code :ref ref} facts)]
