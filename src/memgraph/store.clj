@@ -44,6 +44,10 @@
   (-get-facts [s entity-id opts]
     "Raw facts touching an entity. opts {:direction :out|:in|:both, :predicate kw}.
     Includes invalidated facts; validity filtering happens in core.")
+  (-get-facts-for [s entity-ids opts]
+    "Batched -get-facts: every fact touching ANY of entity-ids, deduplicated,
+    fetched in one query per direction regardless of how many ids are passed.
+    The BFS frontier hands its whole level here — never loop -get-facts.")
   (-get-history [s entity-id predicate]
     "All facts (valid + invalidated) for (subject, predicate).")
   (-invalidate [s fact-id at reason]

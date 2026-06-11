@@ -305,8 +305,9 @@
 
 (defn get-neighborhood
   "BFS expansion to :depth, following entity-kind objects in both directions
-  (computed inverses, not stored twins). The shell fetches each level; the
-  fold into nodes/edges/frontier is pure (logic/bfs-step).
+  (computed inverses, not stored twins). The shell fetches each level's whole
+  frontier in one batched read; the fold into nodes/edges/frontier is pure
+  (logic/bfs-step).
   opts: :entity :entity-scope :depth :as-of :scope :min-confidence :predicate"
   [s {:keys [entity entity-scope depth predicate] :as opts}]
   (let [root (require-entity s entity entity-scope)
@@ -321,8 +322,7 @@
            d 0]
       (if (or (>= d max-depth) (empty? (:frontier state)))
         (logic/neighborhood-result root state d)
-        (let [facts (mapcat #(store/-get-facts s % {:direction :both})
-                            (:frontier state))]
+        (let [facts (store/-get-facts-for s (:frontier state) {:direction :both})]
           (recur (logic/bfs-step state facts keep? (inc d)) (inc d)))))))
 
 (defn get-history

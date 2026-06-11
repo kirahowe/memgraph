@@ -172,6 +172,23 @@
       (let [n (core/get-neighborhood s {:entity "C" :depth 1})]
         (is (= #{"B" "C" "D"} (set (map :name (:entities n)))))))))
 
+(deftest batched-fact-fetch
+  (with-stores [s]
+    (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"})
+    (core/assert-fact s {:subject "B" :predicate :core/depends-on :object "C"})
+    (core/assert-fact s {:subject "A" :predicate :core/prefers :object "x"})
+    (let [eid #(get-in (core/resolve-entity s {:name %}) [:entity :id])
+          ids [(eid "A") (eid "B")]]
+      (testing "a fact touching two requested ids appears once"
+        ;; A->B is outgoing from A and incoming to B
+        (is (= 3 (count (store/-get-facts-for s ids {:direction :both})))))
+      (testing "direction filters apply to the whole batch"
+        (is (= 3 (count (store/-get-facts-for s ids {:direction :out}))))
+        (is (= 1 (count (store/-get-facts-for s ids {:direction :in})))))
+      (testing "predicate filter applies to the whole batch"
+        (is (= 2 (count (store/-get-facts-for s ids {:direction :out
+                                                     :predicate :core/depends-on}))))))))
+
 (deftest literals-are-terminal-in-traversal
   (with-stores [s]
     (core/assert-fact s {:subject "A" :predicate :core/prefers :object "kebab-case"})

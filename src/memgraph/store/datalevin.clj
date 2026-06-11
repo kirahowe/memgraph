@@ -143,19 +143,23 @@
 
 ;; ---- queries ---------------------------------------------------------------
 
-(defn- q-facts [db entity-id direction predicate]
-  (let [out '[?f :fact/subject ?e]
+(defn- q-facts
+  "One Datalog query per direction, with the entity ids bound as a collection —
+  the round-trip count is independent of how many ids are passed."
+  [db entity-ids direction predicate]
+  (let [ids (vec entity-ids)
+        out '[?f :fact/subject ?e]
         in '[?f :fact/object-ref ?e]
         runner (fn [clause]
                  (if predicate
                    (d/q [:find [(list 'pull '?f fact-pull) '...]
-                         :in '$ '?eid '?pred
+                         :in '$ '[?eid ...] '?pred
                          :where '[?e :entity/id ?eid] clause '[?f :fact/predicate ?pred]]
-                        db entity-id predicate)
+                        db ids predicate)
                    (d/q [:find [(list 'pull '?f fact-pull) '...]
-                         :in '$ '?eid
+                         :in '$ '[?eid ...]
                          :where '[?e :entity/id ?eid] clause]
-                        db entity-id)))]
+                        db ids)))]
     (case direction
       :out (runner out)
       :in (runner in)
@@ -244,10 +248,14 @@
 
   (-get-facts [_ entity-id opts]
     (mapv fact->wire
-          (q-facts (d/db conn) entity-id (or (:direction opts) :out) (:predicate opts))))
+          (q-facts (d/db conn) [entity-id] (or (:direction opts) :out) (:predicate opts))))
+
+  (-get-facts-for [_ entity-ids opts]
+    (mapv fact->wire
+          (q-facts (d/db conn) entity-ids (or (:direction opts) :out) (:predicate opts))))
 
   (-get-history [_ entity-id predicate]
-    (mapv fact->wire (q-facts (d/db conn) entity-id :out predicate)))
+    (mapv fact->wire (q-facts (d/db conn) [entity-id] :out predicate)))
 
   (-invalidate [_ fact-id at reason]
     (d/transact! conn [{:fact/id fact-id

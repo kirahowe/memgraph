@@ -3,6 +3,26 @@
 Remaining roadmap, in rough priority order. Rationale for most items lives in
 `docs/memgraph-handoff.md` §7.
 
+## Review feedback round (2026-06-11) — being addressed in order
+
+- [x] 1. Traversal chattiness: BFS now hands its whole frontier to
+      `-get-facts-for` — one query per direction per level, regardless of
+      frontier width.
+- [ ] 2. Maintenance paths pull the whole graph: `conflicts`, `stats`,
+      `decay`, `predicates --usage`, and `stale-facts` all use `-all-facts`
+      and filter client-side; push filters/aggregates into store queries.
+- [ ] 3. Conflict detection only fires on same-(subject, predicate)
+      :one-cardinality collisions; cross-predicate and many-valued
+      contradictions never reach the flag/judge pipeline.
+- [ ] 4. Extractor identity discipline: resolution + aliases exist, but the
+      session extractor doesn't consult existing entities when naming
+      subjects, and ambiguous matches silently create rather than flag.
+- [ ] 5. Valid time on writes: no `--valid-until`; supersede always closes at
+      now, so "true until March, recorded in June" isn't expressible.
+- [ ] 6. Decay is age-based only: reads bump nothing, so a hot fact decays
+      like a dead one. Original intent was confidence decay on
+      *un-referenced* facts.
+
 ## Next up
 
 - [ ] **Failure ingester.** When agent work is rejected or reverted, extract

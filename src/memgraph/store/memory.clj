@@ -20,10 +20,11 @@
     (:object-ref f)
     (assoc :object-ref (get-in st [:entities (get-in f [:object-ref :id])] (:object-ref f)))))
 
-(defn- facts-for [st entity-id {:keys [direction predicate]}]
-  (let [direction (or direction :out)
-        out? #(= entity-id (get-in % [:subject :id]))
-        in? #(= entity-id (get-in % [:object-ref :id]))
+(defn- facts-for [st entity-ids {:keys [direction predicate]}]
+  (let [ids (set entity-ids)
+        direction (or direction :out)
+        out? #(ids (get-in % [:subject :id]))
+        in? #(ids (get-in % [:object-ref :id]))
         dir-pred (case direction
                    :out out?
                    :in in?
@@ -123,10 +124,13 @@
     fact)
 
   (-get-facts [_ entity-id opts]
-    (vec (facts-for @state entity-id opts)))
+    (vec (facts-for @state [entity-id] opts)))
+
+  (-get-facts-for [_ entity-ids opts]
+    (vec (facts-for @state entity-ids opts)))
 
   (-get-history [_ entity-id predicate]
-    (vec (facts-for @state entity-id {:direction :out :predicate predicate})))
+    (vec (facts-for @state [entity-id] {:direction :out :predicate predicate})))
 
   (-invalidate [_ fact-id at reason]
     (swap! state update-in [:facts fact-id]
