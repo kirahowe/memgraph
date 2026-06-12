@@ -173,8 +173,12 @@
       (is (= [:alias "e1"] ((juxt :via (comp :id :entity)) (pick "auth" [auth])))))
     (testing "unique normalized match resolves"
       (is (= [:normalized "e1"] ((juxt :via (comp :id :entity)) (pick "auth_service" [auth])))))
-    (testing "ambiguous normalized match resolves to nothing"
-      (is (nil? (pick "auth_service" [auth other]))))
+    (testing "ambiguous normalized match returns the collision, never a guess"
+      (let [r (pick "auth_service" [auth other])]
+        (is (= :ambiguous (:via r)))
+        (is (= ["e1" "e2"] (mapv :id (:candidates r))))))
+    (testing "zero candidates is nil — genuinely new"
+      (is (nil? (pick "auth_service" []))))
     (testing "type incompatibility blocks a normalized match"
       (is (nil? (pick "auth_service" [auth] :file)))
       (is (some? (pick "auth_service" [auth] :service))))))

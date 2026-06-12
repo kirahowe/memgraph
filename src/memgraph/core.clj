@@ -73,8 +73,9 @@
 (defn resolve-entity
   "Resolve a name to an entity: exact name, exact alias, then a unique
   case/separator-insensitive match (type-guarded). Returns
-  {:entity e :via :exact|:alias|:normalized} or nil — ambiguity never
-  guesses."
+  {:entity e :via :exact|:alias|:normalized},
+  {:via :ambiguous :candidates [...]} when ≥2 normalized matches collide,
+  or nil when nothing matches at all."
   [s {:keys [name scope type]}]
   (let [scope (or scope logic/default-scope)]
     (logic/pick-entity-match {:name name
@@ -82,31 +83,49 @@
                               :type (logic/->kw type)}
                              (store/-find-entities s name scope))))
 
+(defn- fail-ambiguous [name scope candidates]
+  (logic/fail (str "Ambiguous entity: " name " matches "
+                   (count candidates) " entities — refusing to guess")
+              {:type :ambiguous-entity
+               :entity name
+               :scope scope
+               :candidates (mapv #(select-keys % [:id :name :type :scope :aliases])
+                                 candidates)
+               :hint "use the exact name or an alias; if these are duplicates, `entity merge` them"}))
+
 (defn ensure-entity
   "Resolve or create. A resolution through normalization self-heals: the
-  queried name is recorded as an alias so the next lookup is exact."
+  queried name is recorded as an alias so the next lookup is exact. A
+  detected collision (≥2 normalized matches) throws with the candidates
+  attached — minting a third entity is the one outcome that must never
+  happen silently."
   [s {:keys [name type scope]}]
   (when (str/blank? (str name))
     (logic/fail "Entity name required" {:type :missing-entity-name}))
   (let [name (str/trim (str name))
         scope (or scope logic/default-scope)
         type (logic/->kw type)]
-    (if-let [{:keys [entity via]} (resolve-entity s {:name name :scope scope :type type})]
-      (do
-        (when (= :normalized via)
-          (store/-update-entity s (:id entity) {:add-aliases [name]}))
-        (when (and type (nil? (:type entity)))
-          (store/-update-entity s (:id entity) {:type type}))
-        (cond-> entity
-          (= :normalized via) (update :aliases (fnil conj []) name)
-          (and type (nil? (:type entity))) (assoc :type type)))
+    (if-let [{:keys [entity via candidates]} (resolve-entity s {:name name :scope scope :type type})]
+      (if (= :ambiguous via)
+        (fail-ambiguous name scope candidates)
+        (do
+          (when (= :normalized via)
+            (store/-update-entity s (:id entity) {:add-aliases [name]}))
+          (when (and type (nil? (:type entity)))
+            (store/-update-entity s (:id entity) {:type type}))
+          (cond-> entity
+            (= :normalized via) (update :aliases (fnil conj []) name)
+            (and type (nil? (:type entity))) (assoc :type type))))
       (store/-ensure-entity s {:name name :type type :scope scope}))))
 
 (defn require-entity [s name scope]
-  (or (:entity (resolve-entity s {:name name :scope scope}))
-      (logic/fail (str "Entity not found: " name)
-                  {:type :entity-not-found :entity name
-                   :scope (or scope logic/default-scope)})))
+  (let [scope (or scope logic/default-scope)
+        {:keys [entity via candidates]} (resolve-entity s {:name name :scope scope})]
+    (cond
+      entity entity
+      (= :ambiguous via) (fail-ambiguous name scope candidates)
+      :else (logic/fail (str "Entity not found: " name)
+                        {:type :entity-not-found :entity name :scope scope}))))
 
 (defn rename-entity
   "Rename in place: same entity, same facts, same history; the old name is

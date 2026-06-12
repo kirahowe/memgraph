@@ -232,8 +232,10 @@
 (defn pick-entity-match
   "Resolution order over candidate entities: exact name, exact alias, then a
   UNIQUE normalized match guarded by type compatibility (a namespace must not
-  silently match a class). Ambiguity resolves to nothing — never guess.
-  Returns {:entity e :via :exact|:alias|:normalized} or nil."
+  silently match a class). Two or more normalized matches is a detected
+  collision, not a license to guess — it returns {:via :ambiguous} with the
+  candidates so the caller can surface them. Zero candidates returns nil:
+  genuinely new, creating is correct."
   [{:keys [name norm type]} candidates]
   (let [type-ok? (fn [e] (or (nil? type) (nil? (:type e)) (= type (:type e))))
         norm-of (fn [e] (cons (normalize-entity-name (:name e))
@@ -246,6 +248,7 @@
       exact {:entity exact :via :exact}
       alias-hit {:entity alias-hit :via :alias}
       (= 1 (count norm-hits)) {:entity (first norm-hits) :via :normalized}
+      (seq norm-hits) {:via :ambiguous :candidates norm-hits}
       :else nil)))
 
 (defn entity-duplicate-clusters

@@ -273,10 +273,39 @@
     (testing "the write path self-heals: the near-match name became an alias"
       (is (some #{"auth_service"}
                 (:aliases (:entity (core/resolve-entity s {:name "AuthService"}))))))
-    (testing "ambiguity refuses to guess"
-      (store/-ensure-entity s {:name "FooBar" :scope "project"})
-      (store/-ensure-entity s {:name "foo-bar" :scope "project"})
-      (is (nil? (core/resolve-entity s {:name "foo_bar"})))
+    (testing "zero matches is genuinely new — nil, create is correct"
+      (is (nil? (core/resolve-entity s {:name "BrandNewThing"}))))))
+
+(deftest ambiguity-surfaces-instead-of-creating
+  (with-stores [s]
+    (store/-ensure-entity s {:name "FooBar" :scope "project"})
+    (store/-ensure-entity s {:name "foo-bar" :scope "project"})
+    (testing "a detected collision is distinguished from genuinely-new"
+      (let [r (core/resolve-entity s {:name "foo_bar"})]
+        (is (= :ambiguous (:via r)))
+        (is (= 2 (count (:candidates r))))))
+    (testing "the write path throws with candidates instead of minting a third entity"
+      (let [e (try (core/ensure-entity s {:name "foo_bar"})
+                   (catch clojure.lang.ExceptionInfo e e))]
+        (is (= :ambiguous-entity (:type (ex-data e))))
+        (is (= #{"FooBar" "foo-bar"}
+               (set (map :name (:candidates (ex-data e))))))
+        (is (= 2 (count (store/-find-entities s "foo_bar" "project")))
+            "no third entity appeared")))
+    (testing "reads fail with the candidates, not entity-not-found"
+      (let [e (try (core/get-facts s {:entity "foo_bar"})
+                   (catch clojure.lang.ExceptionInfo e e))]
+        (is (= :ambiguous-entity (:type (ex-data e))))))
+    (testing "exact names and aliases still resolve through the collision"
+      (is (= :exact (:via (core/resolve-entity s {:name "FooBar"}))))
+      (is (some? (core/ensure-entity s {:name "foo-bar"}))))
+    (testing "ingest routes ambiguous subjects to the error bucket"
+      (let [r (core/ingest s {:source-type :session-log :ref "x"}
+                           [{:subject "foo_bar" :predicate "prefers" :object "y"}
+                            {:subject "FooBar" :predicate "prefers" :object "z"}])]
+        (is (= 1 (count (:errors r))))
+        (is (= 1 (get-in r [:counts :created])))))
+    (testing "the duplicates report shows the cluster to merge"
       (is (pos? (:clusters (core/entity-duplicates s)))))))
 
 (deftest entity-rename-preserves-everything
