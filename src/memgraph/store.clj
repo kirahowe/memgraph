@@ -66,6 +66,9 @@
     authority on policy and re-apply it over the candidate set.")
   (-predicate-usage [s]
     "Aggregate, store-side: map of predicate -> fact count.")
+  (-entity-usage [s]
+    "Aggregate, store-side: map of entity-id -> count of facts touching it
+    (as subject or object). Ranks the roster shown to the extractor.")
   (-get-history [s entity-id predicate]
     "All facts (valid + invalidated) for (subject, predicate).")
   (-invalidate [s fact-id at reason]

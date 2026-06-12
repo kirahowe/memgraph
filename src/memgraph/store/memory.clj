@@ -178,6 +178,14 @@
   (-predicate-usage [_]
     (frequencies (keep :predicate (vals (:facts @state)))))
 
+  (-entity-usage [_]
+    (reduce (fn [acc f]
+              (reduce (fn [a id] (if id (update a id (fnil inc 0)) a))
+                      acc
+                      [(get-in f [:subject :id]) (get-in f [:object-ref :id])]))
+            {}
+            (vals (:facts @state))))
+
   (-open-episode [_ ep]
     (swap! state assoc-in [:episodes (:id ep)] ep)
     ep)

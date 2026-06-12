@@ -20,9 +20,12 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       what writes can't see — exclusive-value pairs and decision-vs-anything
       shared-object pairs — pure and per-subject bounded, judged offline,
       linked into the same pipeline. The LLM never runs on the write path.
-- [ ] 4. Extractor identity discipline: resolution + aliases exist, but the
-      session extractor doesn't consult existing entities when naming
-      subjects, and ambiguous matches silently create rather than flag.
+- [x] 4. Ingestion identity discipline, both holes: ambiguous resolution
+      (≥2 normalized matches) now surfaces with candidates instead of
+      minting a third entity — writes throw, reads say "did you mean", and
+      ingest routes such facts to the error bucket. The extraction prompt
+      carries a bounded known-entity roster (top by usage, with aliases) as
+      a prior, so the LLM reuses exact names instead of coining synonyms.
 - [ ] 5. Valid time on writes: no `--valid-until`; supersede always closes at
       now, so "true until March, recorded in June" isn't expressible.
 - [ ] 6. Decay is age-based only: reads bump nothing, so a hot fact decays

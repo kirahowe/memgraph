@@ -152,8 +152,11 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
   bi-temporally and status changes flow through the conflict machinery.
 - **Entity resolution is layered**: lookups resolve exact names, then aliases,
   then a unique case/separator-insensitive match (type-guarded, so a namespace
-  can't silently match a class); ambiguity never guesses. Write-path
-  near-matches self-heal by recording the queried name as an alias. Curation
+  can't silently match a class). A detected collision (two or more normalized
+  matches) never guesses AND never creates — it errors with the candidates
+  attached, and ingestion routes such facts to the error bucket instead of
+  minting a third entity. Write-path near-matches self-heal by recording the
+  queried name as an alias. Curation
   verbs handle the rest: `entity rename` keeps the old name as an alias with
   facts and history intact, `entity merge` repoints facts and collapses the
   exposed duplicates non-lossily, `entity split` records `derived-from`
@@ -172,7 +175,12 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
    decisions, gotchas, conventions) from a session transcript — plain text or
    Claude Code session JSONL. The extractor is pluggable: defaults to an
    already-authenticated `claude -p` (subscription-as-judge, ~$0 marginal),
-   overridable via `--extractor` / `$MEMGRAPH_LLM_CMD`. Session-derived
+   overridable via `--extractor` / `$MEMGRAPH_LLM_CMD`. The prompt carries a
+   bounded roster of known entities (top by fact count, with aliases) as a
+   prior — "use these exact names when you mean them" — so the extractor
+   aligns synonyms instead of coining `AuthSvc` next to `AuthService`;
+   normalization catches typographic drift, the roster catches semantic
+   drift, and ambiguity detection backstops both. Session-derived
    facts are second-class evidence by design: confidence capped at 0.7,
    source-type `session-log`. `--dry-run` shows what would be ingested.
 3. **`ingest`** — batch JSONL (file or stdin) under one episode. Each line

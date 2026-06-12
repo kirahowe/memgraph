@@ -338,6 +338,16 @@
                     :where [?f :fact/predicate ?p]]
                   (d/db conn))))
 
+  (-entity-usage [_]
+    (let [db (d/db conn)
+          as-subject (d/q '[:find ?id (count ?f)
+                            :where [?f :fact/subject ?e] [?e :entity/id ?id]]
+                          db)
+          as-object (d/q '[:find ?id (count ?f)
+                           :where [?f :fact/object-ref ?e] [?e :entity/id ?id]]
+                         db)]
+      (merge-with + (into {} as-subject) (into {} as-object))))
+
   (-open-episode [_ ep]
     (d/transact! conn [(strip-nils {:episode/id (:id ep)
                                     :episode/source-type (:source-type ep)

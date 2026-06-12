@@ -20,6 +20,7 @@
 
 (def max-confidence 0.7)
 (def default-confidence 0.6)
+(def roster-limit 200)
 
 ;; ---------------------------------------------------------------------------
 ;; Pure: transcript normalization
@@ -64,7 +65,21 @@
 ;; Pure: prompt
 ;; ---------------------------------------------------------------------------
 
-(defn extraction-prompt [transcript predicates]
+(defn entity-roster
+  "The known-entity slice shown to the extractor: top entities by fact count
+  (then name), rendered one per line with aliases and type. A prior, not a
+  constraint — entities are open-world, so the roster says 'prefer these
+  exact names when you mean them', never 'only these exist'."
+  [entities usage limit]
+  (->> entities
+       (sort-by (fn [e] [(- (get usage (:id e) 0)) (:name e)]))
+       (take limit)
+       (mapv (fn [{ename :name etype :type aliases :aliases}]
+               (str "  " ename
+                    (when (seq aliases) (str " (aka " (str/join ", " aliases) ")"))
+                    (when etype (str " [" (name etype) "]")))))))
+
+(defn extraction-prompt [transcript predicates roster]
   (str
    "Extract durable project memory from this coding-session transcript.\n\n"
    "Emit one JSON object per line (JSONL) and nothing else — no prose, no code fences.\n"
@@ -79,6 +94,11 @@
    "Allowed predicates (coin x/<new-name> only if none fits):\n"
    (str/join "\n" (for [p predicates]
                     (str "  " (subs (str (:id p)) 1) " — " (:definition p))))
+   (when (seq roster)
+     (str "\n\nKnown entities — when you mean one of these, use its EXACT name\n"
+          "(synonym drift fragments the graph); coin a new name only when none\n"
+          "of these is the thing you mean:\n"
+          (str/join "\n" roster)))
    "\n\nIf nothing qualifies, output nothing.\n\n"
    "<transcript>\n" transcript "\n</transcript>"))
 
@@ -130,7 +150,10 @@
         run (or extractor-fn
                 (partial llm/complete! (llm/command extractor)))
         prompt (extraction-prompt (->transcript content)
-                                  (store/-list-predicates s {:status :stable}))
+                                  (store/-list-predicates s {:status :stable})
+                                  (entity-roster (store/-list-entities s {})
+                                                 (store/-entity-usage s)
+                                                 roster-limit))
         {:keys [facts rejected]} (prepare-facts (parse-extraction (run prompt)))]
     (if dry-run
       {:status :dry-run :facts facts :rejected rejected}
