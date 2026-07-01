@@ -65,13 +65,6 @@
         ;; an open commitment conflict
         _ (core/assert-fact s {:subject "ADR-1" :predicate :core/has-status :object "accepted"})
         _ (core/assert-fact s {:subject "ADR-1" :predicate :core/has-status :object "superseded"})
-        ;; a stale fact for decay
-        old (java.util.Date. (- (System/currentTimeMillis) (* 200 86400000)))
-        _ (store/-insert-fact s {:id "f-stale" :subject (core/ensure-entity s {:name "Old"})
-                                 :predicate :core/depends-on :object-kind :literal
-                                 :object-lit "stale" :t-valid old :recorded-at old
-                                 :confidence 0.8 :epistemic :observation :scope "project"
-                                 :source-type :inferred})
         result (consolidate/consolidate!
                 s {:summarize-fn (constantly "Chose Result types for AuthService.")
                    :judge-fn (constantly "{\"relation\":\"supersedes\",\"confidence\":0.9}")
@@ -87,8 +80,6 @@
     (testing "the conflict was judged and resolved"
       (is (= 1 (get-in result [:conflicts :resolved])))
       (is (zero? (:open (core/conflicts s)))))
-    (testing "stale confidence decayed"
-      (is (= 1 (get-in result [:decay :affected]))))
     (testing "the staging predicate surfaces for promotion review"
       (is (= [:x/pairs-well-with]
              (mapv :id (:promotion-candidates result)))))

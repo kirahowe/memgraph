@@ -241,7 +241,11 @@
 (defn- execute-assert! [s {:keys [action fact existing invalidate link candidates
                                   effective-at reason]}]
   (case action
-    :noop {:status :noop :fact existing}
+    :reinforce (let [boosted (logic/reinforced-confidence existing (:confidence fact))
+                     at (:recorded-at fact)]
+                 (store/-reinforce s (:id existing) {:at at :confidence boosted})
+                 {:status :reinforced
+                  :fact (assoc existing :confidence boosted :last-reinforced-at at)})
     :insert {:status :created :fact (store/-insert-fact s fact)}
     :supersede (do (doseq [id invalidate]
                      (store/-invalidate s id effective-at
@@ -265,9 +269,13 @@
         :on-conflict (:supersede | :flag | :ignore)
         :t-valid :t-invalid (valid time, both ends; defaults: now, open)
 
-  Returns {:status :created|:noop|:superseded|:flagged
+  Returns {:status :created|:reinforced|:superseded|:flagged
            :fact <fact>
-           :superseded [ids] / :candidates [conflicting facts]}"
+           :superseded [ids] / :candidates [conflicting facts]}
+
+  Re-asserting an existing fact reinforces it: the disuse clock resets and
+  base confidence rises toward the source ceiling (never above it, never
+  down)."
   [s {:keys [subject subject-type subject-scope predicate
              object object-type object-scope object-kind
              epistemic scope confidence source-type episode on-conflict
@@ -330,7 +338,8 @@
   [s {:keys [entity entity-scope direction predicate] :as opts}]
   (let [e (require-entity s entity entity-scope)
         pred-id (when predicate (resolve-predicate-id s predicate))
-        keep? (logic/fact-filter {:at (or (:as-of opts) (now))
+        at (or (:as-of opts) (now))
+        keep? (logic/fact-filter {:at at
                                   :include-invalidated (:include-invalidated opts)
                                   :min-confidence (:min-confidence opts)
                                   :scope (:scope opts)})]
@@ -339,7 +348,8 @@
                                               :predicate pred-id})
                  (filter keep?)
                  (sort-by (comp logic/ms :t-valid))
-                 vec)}))
+                 (mapv #(assoc % :effective-confidence
+                               (logic/effective-confidence % at))))}))
 
 (defn get-neighborhood
   "BFS expansion to :depth, following entity-kind objects in both directions
@@ -349,7 +359,8 @@
   opts: :entity :entity-scope :depth :as-of :scope :min-confidence :predicate"
   [s {:keys [entity entity-scope depth predicate] :as opts}]
   (let [root (require-entity s entity entity-scope)
-        keep? (logic/fact-filter {:at (or (:as-of opts) (now))
+        at (or (:as-of opts) (now))
+        keep? (logic/fact-filter {:at at
                                   :min-confidence (:min-confidence opts)
                                   :scope (:scope opts)
                                   :predicate (when predicate (resolve-predicate-id s predicate))})
@@ -359,7 +370,10 @@
                   :frontier #{(:id root)}}
            d 0]
       (if (or (>= d max-depth) (empty? (:frontier state)))
-        (logic/neighborhood-result root state d)
+        (update (logic/neighborhood-result root state d) :facts
+                (fn [fs] (mapv #(assoc % :effective-confidence
+                                       (logic/effective-confidence % at))
+                               fs)))
         (let [facts (store/-get-facts-for s (:frontier state) {:direction :both})]
           (recur (logic/bfs-step state facts keep? (inc d)) (inc d)))))))
 
@@ -375,8 +389,19 @@
                    (sort-by (comp logic/ms :t-valid))
                    vec)}))
 
-(defn search [s query opts]
-  (store/-search s query opts))
+(defn search
+  "Full-text search. Fact hits are ranked by effective (disuse-decayed)
+  confidence — the FTS candidate set is bounded, so ranking in logic is the
+  same store-narrows/logic-decides split as everywhere else."
+  [s query opts]
+  (let [t (now)]
+    (update (store/-search s query opts) :facts
+            (fn [fs]
+              (->> fs
+                   (map #(assoc % :effective-confidence
+                                (logic/effective-confidence % t)))
+                   (sort-by (comp - :effective-confidence))
+                   vec)))))
 
 (defn conflicts
   "Open conflicts: flagged facts whose conflicting candidates are still
@@ -458,24 +483,6 @@
 ;; ---------------------------------------------------------------------------
 ;; Maintenance
 ;; ---------------------------------------------------------------------------
-
-(defn decay
-  "Soft forgetting. The store narrows to cheap-valid facts recorded before
-  the cutoff; logic/decay-plan re-applies the exact policy (validity at now,
-  epistemic and source-type exemptions) over that candidate set.
-  opts {:older-than-days N :factor f}."
-  [s {:keys [older-than-days factor]}]
-  (let [t (now)
-        days (long (or older-than-days 90))
-        cutoff (java.util.Date. (- (logic/ms t) (* 86400000 days)))
-        candidates (store/-select-facts s {:valid-cheap true
-                                           :recorded-before cutoff})
-        plan (logic/decay-plan candidates {:now t
-                                           :older-than-days days
-                                           :factor factor})]
-    (doseq [{:keys [fact-id confidence]} plan]
-      (store/-update-confidence s fact-id confidence))
-    {:status :decayed :affected (count plan)}))
 
 (defn stats [s]
   (assoc (store/-stats s) :open-conflicts (:open (conflicts s))))

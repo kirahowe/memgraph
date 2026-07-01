@@ -11,6 +11,7 @@
   fact      {:id :subject <entity> :predicate kw :object-kind :entity|:literal
              :object-ref <entity>|nil :object-lit str|nil
              :t-valid Date :t-invalid Date|nil :recorded-at Date
+             :last-reinforced-at Date|nil
              :confidence double :epistemic kw :scope str :source-type kw
              :episode str|nil :conflicts [fact-id] :invalidation-reason str|nil}
   episode   {:id :source-type :ref :summary :opened-at :closed-at}
@@ -62,8 +63,9 @@
       :conflicted true        carries at least one conflict link
       :valid-cheap true       t-invalid absent — the cheap indexed check ONLY
     Over-inclusion is allowed and expected: the pure functions in logic
-    (fact-valid-at?, decay-plan, open-conflicts, stale-facts) remain the sole
-    authority on policy and re-apply it over the candidate set.")
+    (fact-valid-at?, effective-confidence, open-conflicts, stale-facts)
+    remain the sole authority on policy and re-apply it over the candidate
+    set.")
   (-predicate-usage [s]
     "Aggregate, store-side: map of predicate -> fact count.")
   (-entity-usage [s]
@@ -77,7 +79,9 @@
     "Record conflict links from fact-id to each id in conflict-ids.")
   (-unlink-conflicts [s fact-id conflict-ids]
     "Remove conflict links from fact-id to each id in conflict-ids.")
-  (-update-confidence [s fact-id confidence])
+  (-reinforce [s fact-id {:keys [at confidence]}]
+    "Reset a fact's disuse clock (:last-reinforced-at, plus any derived
+    mirror) and set its base confidence, in one write.")
   (-all-facts [s])
   (-open-episode [s ep]
     "ep = {:id :source-type :ref :opened-at}. Returns episode.")

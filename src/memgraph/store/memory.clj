@@ -148,8 +148,9 @@
            (fn [ids] (vec (remove (set conflict-ids) ids))))
     fact-id)
 
-  (-update-confidence [_ fact-id confidence]
-    (swap! state assoc-in [:facts fact-id :confidence] (double confidence))
+  (-reinforce [_ fact-id {:keys [at confidence]}]
+    (swap! state update-in [:facts fact-id]
+           assoc :last-reinforced-at at :confidence (double confidence))
     fact-id)
 
   (-all-facts [_]

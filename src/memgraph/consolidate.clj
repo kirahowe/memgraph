@@ -1,8 +1,9 @@
 (ns memgraph.consolidate
   "Dreaming-style offline consolidation: one pass that summarizes and closes
   open episodes (LLM, with a mechanical fallback), judges open conflicts,
-  decays stale confidence, and reports :x/* predicates that have earned
-  promotion review.
+  sweeps for conflict candidates the write path can't see, and reports :x/*
+  predicates that have earned promotion review. (Disuse decay needs no pass:
+  effective confidence is computed at read time.)
 
   Functional core / imperative shell: episode planning, prompt construction,
   summary parsing, the mechanical fallback, and promotion-candidate selection
@@ -126,10 +127,8 @@
   opts: :command (LLM command; default $MEMGRAPH_LLM_CMD or claude -p)
         :summarize-fn :judge-fn (prompt -> response; injectable, used by tests)
         :resolve :min-confidence (forwarded to the conflict judge)
-        :older-than-days :factor (forwarded to decay)
         :min-usage (promotion-candidate threshold, default 3)"
-  [s {:keys [command summarize-fn judge-fn resolve min-confidence
-             older-than-days factor min-usage]}]
+  [s {:keys [command summarize-fn judge-fn resolve min-confidence min-usage]}]
   (let [all-episodes (store/-list-episodes s)
         open-ids (mapv :id (remove :closed-at all-episodes))
         ep-facts (if (seq open-ids)
@@ -144,13 +143,11 @@
         conflicts (try (judge/judge-conflicts! s judge-opts)
                        (catch Exception e {:error (ex-message e)}))
         sweep (try (judge/sweep-conflicts! s judge-opts)
-                   (catch Exception e {:error (ex-message e)}))
-        decay (core/decay s {:older-than-days older-than-days :factor factor})]
+                   (catch Exception e {:error (ex-message e)}))]
     {:status :consolidated
      :episodes episodes
      :conflicts conflicts
      :sweep sweep
-     :decay decay
      :promotion-candidates (promotion-candidates
                             (store/-list-predicates s {:status :testing})
                             (store/-predicate-usage s)

@@ -129,6 +129,7 @@
      :t-valid t-valid
      :t-invalid t-invalid
      :recorded-at now
+     :last-reinforced-at now
      :confidence (double (or confidence 0.8))
      :epistemic epistemic
      :scope (or scope default-scope)
@@ -158,11 +159,15 @@
   sharing the asserted predicate's exclusion group, gathered by the shell —
   return an effect plan:
 
-    {:action :noop      :existing fact}
+    {:action :reinforce :existing fact :fact fact}
     {:action :insert    :fact fact}
     {:action :supersede :fact fact :invalidate [fact-ids] :effective-at inst}
     {:action :flag      :fact fact :link [fact-ids] :candidates [facts]
-                        (:reason :backdated-overlap when time-inverted)}"
+                        (:reason :backdated-overlap when time-inverted)}
+
+  A re-assertion of an existing fact is reinforcement, not a dead end: the
+  world (or the user) just confirmed it, so its disuse clock resets and its
+  confidence may rise toward the source ceiling."
   [{:keys [fact pred existing exclusion on-conflict]}]
   (let [same? (same-object-pred fact)
         duplicate (first (filter same? existing))
@@ -171,7 +176,7 @@
                                  exclusion))]
     (cond
       duplicate
-      {:action :noop :existing duplicate}
+      {:action :reinforce :existing duplicate :fact fact}
 
       (seq conflicting)
       (let [effective-at (:t-valid fact)
@@ -221,16 +226,68 @@
                 (into {})))))
 
 ;; ---------------------------------------------------------------------------
+;; Confidence: reinforcement and disuse decay
+;; ---------------------------------------------------------------------------
+
+(def source-ceilings
+  "Reinforcement raises confidence toward a class-appropriate ceiling, never
+  toward 1.0 — a fact the ingester re-derives 500 times must stay
+  distinguishable from a human decision."
+  {:decision-record 1.0
+   :code 0.95
+   :user-assertion 0.9
+   :session-log 0.7
+   :inferred 0.6})
+
+(defn confidence-ceiling [source-type]
+  (get source-ceilings source-type 0.9))
+
+(defn reinforced-confidence
+  "New base confidence after a re-assertion: never lowered by weaker
+  evidence, raised by stronger evidence only up to the existing fact's
+  source ceiling (a base already above its ceiling is preserved, not clawed
+  back). Repetition alone never grows it — resetting the disuse clock is the
+  reinforcement mechanism; base is a ceiling-capped high-water mark."
+  [existing incoming-confidence]
+  (max (double (:confidence existing))
+       (min (confidence-ceiling (:source-type existing))
+            (double (or incoming-confidence 0.0)))))
+
+(def default-half-life-days 90)
+(def confidence-floor 0.05)
+
+(defn effective-confidence
+  "Disuse decay as a view — never stored. The stored base halves per
+  half-life since the fact was last reinforced (asserted or re-derived);
+  commitments and decision-record facts never fade. Facts predating the
+  reinforcement field anchor on recorded-at."
+  ([fact now] (effective-confidence fact now nil))
+  ([{:keys [confidence epistemic source-type recorded-at last-reinforced-at]}
+    now {:keys [half-life-days floor]}]
+   (let [confidence (double (or confidence 0.0))]
+     (if (or (= :commitment epistemic)
+             (= :decision-record source-type)
+             (nil? recorded-at))
+       confidence
+       (let [anchor (max (ms recorded-at) (ms (or last-reinforced-at recorded-at)))
+             days (double (or half-life-days default-half-life-days))
+             periods (max 0.0 (/ (- (ms now) anchor) (* 86400000.0 days)))]
+         (max (double (or floor confidence-floor))
+              (* confidence (Math/pow 0.5 periods))))))))
+
+;; ---------------------------------------------------------------------------
 ;; Read filters & traversal
 ;; ---------------------------------------------------------------------------
 
 (defn fact-filter
   "Predicate over facts for reads: validity at :at, plus optional
-  confidence/scope/predicate filters."
+  confidence/scope/predicate filters. :min-confidence compares against
+  EFFECTIVE (disuse-decayed) confidence, evaluated at :at."
   [{:keys [at include-invalidated min-confidence scope predicate]}]
   (fn [f]
     (and (or include-invalidated (fact-valid-at? f at))
-         (or (nil? min-confidence) (>= (:confidence f) (double min-confidence)))
+         (or (nil? min-confidence)
+             (>= (effective-confidence f at) (double min-confidence)))
          (or (nil? scope) (= scope (:scope f)))
          (or (nil? predicate) (= predicate (:predicate f))))))
 
@@ -403,20 +460,3 @@
                :when (and c (fact-valid-at? c at))]
            {:fact f :candidate c}))))
 
-;; ---------------------------------------------------------------------------
-;; Maintenance plans
-;; ---------------------------------------------------------------------------
-
-(defn decay-plan
-  "Soft forgetting, as a plan: which facts get which new confidence.
-  Commitments and decision-record facts never decay."
-  [facts {:keys [now older-than-days factor]}]
-  (let [cutoff (- (ms now) (* 86400000 (long (or older-than-days 90))))
-        factor (double (or factor 0.9))]
-    (->> facts
-         (filter #(fact-valid-at? % now))
-         (remove #(= :commitment (:epistemic %)))
-         (remove #(= :decision-record (:source-type %)))
-         (filter #(< (ms (:recorded-at %)) cutoff))
-         (mapv (fn [f] {:fact-id (:id f)
-                        :confidence (max 0.05 (* factor (:confidence f)))})))))

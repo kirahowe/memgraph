@@ -1,7 +1,7 @@
 (ns memgraph.logic-test
-  "The payoff of the functional core: assertion decisions, decay plans, and
-  BFS folds tested as plain functions over values — no store, no clock, no
-  fixtures."
+  "The payoff of the functional core: assertion decisions, confidence views,
+  and BFS folds tested as plain functions over values — no store, no clock,
+  no fixtures."
   (:require [clojure.test :refer [deftest is testing]]
             [memgraph.logic :as logic]))
 
@@ -26,10 +26,10 @@
   (testing "no existing facts -> insert"
     (is (= :insert (:action (logic/decide-assert {:fact (candidate {}) :pred version-pred
                                                   :existing []})))))
-  (testing "same object -> noop, returning the existing fact"
+  (testing "same object -> reinforce the existing fact"
     (let [d (logic/decide-assert {:fact (candidate {:object "1.0"}) :pred version-pred
                                   :existing [existing-v1]})]
-      (is (= :noop (:action d)))
+      (is (= :reinforce (:action d)))
       (is (= "f-old" (get-in d [:existing :id])))))
   (testing "observation conflict -> supersede plan naming the losers"
     (let [d (logic/decide-assert {:fact (candidate {}) :pred version-pred
@@ -147,17 +147,35 @@
     (is (thrown? clojure.lang.ExceptionInfo
                  (logic/normalize-ingest-fact {:valid-from "not-a-date"})))))
 
-(deftest decay-plan-is-data
-  (let [old #inst "2025-06-01T00:00:00Z"
-        facts [{:id "stale" :epistemic :observation :source-type :inferred
-                :t-valid old :recorded-at old :confidence 0.8}
-               {:id "commit" :epistemic :commitment :source-type :user-assertion
-                :t-valid old :recorded-at old :confidence 0.9}
-               {:id "fresh" :epistemic :observation :source-type :code
-                :t-valid t1 :recorded-at t1 :confidence 0.95}]
-        plan (logic/decay-plan facts {:now t1 :older-than-days 90 :factor 0.5})]
-    (is (= [{:fact-id "stale" :confidence 0.4}] plan)
-        "only stale non-commitments decay; the plan is just data")))
+(deftest confidence-is-a-view
+  (let [fact {:confidence 0.8 :epistemic :observation :source-type :inferred
+              :recorded-at t0 :last-reinforced-at t0}
+        day (fn [n] (java.util.Date. (+ (logic/ms t0) (* n 86400000))))]
+    (is (= 0.8 (logic/effective-confidence fact t0)) "no decay at the anchor")
+    (is (= 0.4 (logic/effective-confidence fact (day 90))) "one half-life halves")
+    (is (= 0.05 (logic/effective-confidence fact (day 3650))) "the floor holds")
+    (is (= 0.8 (logic/effective-confidence (assoc fact :last-reinforced-at (day 90))
+                                           (day 90)))
+        "reinforcement resets the disuse clock")
+    (is (= 0.8 (logic/effective-confidence (assoc fact :epistemic :commitment) (day 365)))
+        "commitments never fade")
+    (is (= 0.8 (logic/effective-confidence (assoc fact :source-type :decision-record)
+                                           (day 365)))
+        "decision-record facts never fade")
+    (is (= 0.8 (logic/effective-confidence (dissoc fact :last-reinforced-at) t0))
+        "legacy facts anchor on recorded-at")
+    (is (= 0.8 (logic/effective-confidence fact #inst "2020-01-01"))
+        "an as-of before the anchor sees the undecayed base")))
+
+(deftest reinforcement-confidence-rules
+  (is (= 0.7 (logic/reinforced-confidence {:confidence 0.6 :source-type :session-log} 0.95))
+      "growth is capped by the source ceiling")
+  (is (= 0.65 (logic/reinforced-confidence {:confidence 0.65 :source-type :session-log} 0.5))
+      "weaker evidence never lowers the base")
+  (is (= 0.99 (logic/reinforced-confidence {:confidence 0.99 :source-type :session-log} 0.95))
+      "a base already above its ceiling is preserved, not clawed back")
+  (is (= 0.95 (logic/reinforced-confidence {:confidence 0.9 :source-type :code} 0.99))
+      "code facts may rise to the mechanical ceiling"))
 
 (deftest bfs-step-folds-purely
   (let [a {:id "ea" :name "A"} b {:id "eb" :name "B"}

@@ -39,6 +39,8 @@
    ;; derived long for indexed recorded-before selection (Datalog comparison
    ;; predicates work on numbers, not boxed dates)
    :fact/recorded-ms {:db/valueType :db.type/long}
+   :fact/last-reinforced-at {:db/valueType :db.type/instant}
+   :fact/last-reinforced-ms {:db/valueType :db.type/long}
    :fact/confidence  {:db/valueType :db.type/double}
    :fact/source      {:db/valueType :db.type/ref}
    :fact/source-type {:db/valueType :db.type/keyword}
@@ -82,7 +84,8 @@
 
 (def ^:private fact-pull
   [:fact/id :fact/predicate :fact/object-kind :fact/object-lit
-   :fact/t-valid :fact/t-invalid :fact/recorded-at :fact/confidence
+   :fact/t-valid :fact/t-invalid :fact/recorded-at :fact/last-reinforced-at
+   :fact/confidence
    :fact/epistemic :fact/scope :fact/source-type :fact/invalidation-reason
    {:fact/subject entity-pull}
    {:fact/object-ref entity-pull}
@@ -105,6 +108,7 @@
    :t-valid (:fact/t-valid m)
    :t-invalid (:fact/t-invalid m)
    :recorded-at (:fact/recorded-at m)
+   :last-reinforced-at (:fact/last-reinforced-at m)
    :confidence (:fact/confidence m)
    :epistemic (:fact/epistemic m)
    :scope (:fact/scope m)
@@ -143,6 +147,8 @@
     :fact/t-invalid (:t-invalid f)
     :fact/recorded-at (:recorded-at f)
     :fact/recorded-ms (some-> ^java.util.Date (:recorded-at f) .getTime)
+    :fact/last-reinforced-at (:last-reinforced-at f)
+    :fact/last-reinforced-ms (some-> ^java.util.Date (:last-reinforced-at f) .getTime)
     :fact/confidence (:confidence f)
     :fact/epistemic (:epistemic f)
     :fact/scope (:scope f)
@@ -323,8 +329,11 @@
                             conflict-ids))
     fact-id)
 
-  (-update-confidence [_ fact-id confidence]
-    (d/transact! conn [{:fact/id fact-id :fact/confidence (double confidence)}])
+  (-reinforce [_ fact-id {:keys [at confidence]}]
+    (d/transact! conn [{:fact/id fact-id
+                        :fact/confidence (double confidence)
+                        :fact/last-reinforced-at at
+                        :fact/last-reinforced-ms (.getTime ^java.util.Date at)}])
     fact-id)
 
   (-all-facts [_]

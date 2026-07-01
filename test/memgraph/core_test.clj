@@ -54,12 +54,18 @@
       (is (= 1 (count facts)))
       (is (= "Redis" (get-in (first facts) [:object-ref :name]))))))
 
-(deftest duplicate-is-noop
+(deftest duplicate-reinforces
   (with-stores [s]
-    (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"})
-    (let [r (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"})]
-      (is (= :noop (:status r))))
-    (is (= 1 (count (:facts (core/get-facts s {:entity "A"})))))))
+    (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"
+                         :confidence 0.5})
+    (let [r (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"
+                                 :confidence 0.9})]
+      (is (= :reinforced (:status r)))
+      (is (= 0.9 (get-in r [:fact :confidence])) "stronger evidence raises the base"))
+    (let [facts (:facts (core/get-facts s {:entity "A"}))]
+      (is (= 1 (count facts)) "still one fact")
+      (is (= 0.9 (:confidence (first facts))))
+      (is (some? (:last-reinforced-at (first facts)))))))
 
 (deftest cardinality-many-accumulates
   (with-stores [s]
@@ -459,27 +465,29 @@
     (let [r (core/search s "PaymentService" {})]
       (is (= 1 (count (:entities r)))))))
 
-(deftest decay-spares-commitments
+(deftest disuse-decay-is-computed-at-read
   (with-stores [s]
-    (let [old (java.util.Date. (- (System/currentTimeMillis) (* 200 86400000)))]
-      (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"})
-      ;; backdate recorded-at by inserting directly through the store
-      (store/-insert-fact s {:id "f-old" :subject (core/ensure-entity s {:name "A"})
-                             :predicate :core/depends-on :object-kind :literal
-                             :object-lit "stale" :t-valid old :recorded-at old
-                             :confidence 0.8 :epistemic :observation :scope "project"
+    (let [old (java.util.Date. (- (System/currentTimeMillis) (* 90 86400000)))]
+      ;; a fact last reinforced one half-life ago
+      (store/-insert-fact s {:id "f-stale" :subject (core/ensure-entity s {:name "A"})
+                             :predicate :core/prefers :object-kind :literal
+                             :object-lit "stale style" :t-valid old :recorded-at old
+                             :last-reinforced-at old
+                             :confidence 0.8 :epistemic :preference :scope "project"
                              :source-type :inferred})
-      (store/-insert-fact s {:id "f-old-commit" :subject (core/ensure-entity s {:name "A"})
-                             :predicate :core/decided-against :object-kind :literal
-                             :object-lit "GraphQL" :t-valid old :recorded-at old
-                             :confidence 0.9 :epistemic :commitment :scope "project"
-                             :source-type :user-assertion})
-      (let [r (core/decay s {:older-than-days 90 :factor 0.5})]
-        (is (= 1 (:affected r))))
-      (let [facts (store/-all-facts s)
-            by-id (into {} (map (juxt :id identity)) facts)]
-        (is (= 0.4 (:confidence (by-id "f-old"))))
-        (is (= 0.9 (:confidence (by-id "f-old-commit"))) "commitments never decay")))))
+      (let [f (first (:facts (core/get-facts s {:entity "A"})))]
+        (is (= 0.8 (:confidence f)) "the stored base never changes")
+        (is (< 0.3 (:effective-confidence f) 0.5) "~one half-life gone at read time"))
+      (testing "min-confidence filters on effective confidence"
+        (is (empty? (:facts (core/get-facts s {:entity "A" :min-confidence 0.6})))))
+      (testing "re-assertion reinforces: the disuse clock resets"
+        (let [r (core/assert-fact s {:subject "A" :predicate :core/prefers
+                                     :object "stale style" :object-kind :literal
+                                     :source-type :inferred :confidence 0.8})]
+          (is (= :reinforced (:status r))))
+        (let [f (first (:facts (core/get-facts s {:entity "A"})))]
+          (is (> (:effective-confidence f) 0.75) "hot again")
+          (is (= 0.8 (:confidence f)) "repetition alone never grows the base"))))))
 
 (deftest dump-is-complete
   (with-stores [s]

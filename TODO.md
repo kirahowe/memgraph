@@ -35,9 +35,16 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       (transaction-time retraction history, the XTDB model) deliberately out
       of scope — `recorded-at`/`recorded-ms` stay the append-only hook if
       ever needed.
-- [ ] 6. Decay is age-based only: reads bump nothing, so a hot fact decays
-      like a dead one. Original intent was confidence decay on
-      *un-referenced* facts.
+- [x] 6. Decay is disuse-based and computed, not stored: facts carry a
+      `last-reinforced-at` anchor; effective confidence is a read-time view
+      (90-day half-life, floor 0.05; commitments/decision-records exempt).
+      Re-assertion reinforces — resets the clock and raises base toward a
+      per-source ceiling (never by repetition alone; existing fact's ceiling
+      governs). Every ingest-code pass now keeps code facts warm. The batch
+      `decay` job is gone. Deferred behind observed need: reinforcement on
+      true retrieval (batched `-touch-facts` from intent commands only —
+      reads-as-writes stays out until read-hot-but-never-reasserted facts
+      demonstrably decay wrongly).
 
 ## Next up
 

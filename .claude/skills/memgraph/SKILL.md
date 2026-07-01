@@ -75,8 +75,9 @@ Choose the epistemic class deliberately — it sets the conflict behavior:
   bin/memgraph consolidate
   ```
   Closes open episodes with summaries (making episodic history searchable),
-  reviews conflicts, decays stale facts, and surfaces `x/*` predicates worth
-  promoting.
+  reviews and sweeps conflicts, and surfaces `x/*` predicates worth promoting.
+  (Forgetting needs no pass: confidence decays by disuse, computed at read
+  time; re-asserting a fact reinforces it.)
 
 ## Handling responses
 

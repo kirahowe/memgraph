@@ -65,7 +65,8 @@
         (testing "second pass invalidates the vanished facts"
           ;; app.a depends-on app.b; app.b defined-in b.clj; b.clj written-in clojure
           (is (= 3 (:invalidated r)))
-          (is (= {:noop 2} (:counts r)) "surviving facts no-op"))
+          (is (= {:reinforced 2} (:counts r))
+              "surviving facts are reinforced — the pass keeps the graph warm"))
         (testing "the graph now reflects the code"
           (is (empty? (:facts (core/get-facts s {:entity "app.a"
                                                  :predicate :core/depends-on}))))

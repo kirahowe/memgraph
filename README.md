@@ -74,7 +74,10 @@ from the epistemic class:
   `candidates` are returned. A human decision is never silently overwritten by
   new evidence — it surfaces for review.
 - Caller override: `--on-conflict supersede|flag|ignore`.
-- Multi-valued predicates (e.g. `depends-on`) accumulate; exact duplicates no-op.
+- Multi-valued predicates (e.g. `depends-on`) accumulate. Exact duplicates
+  **reinforce**: the world (or the user) just confirmed the fact, so its
+  disuse clock resets and its confidence may rise toward a per-source ceiling
+  — never above it, never down, and never by repetition alone.
 - **Exclusion groups** widen detection across predicates: registry rows can
   declare mutually-exclusive stances toward the same object (`prefers` /
   `decided-against` share the `:stance` group; `supersedes`/`superseded-by`
@@ -199,18 +202,35 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
    for the epistemic field.
 4. **`assert`** — one fact, interactively or from a skill.
 
+## Forgetting
+
+Disuse decay is a view, not a job. Facts store a base confidence and a
+`last-reinforced-at` anchor; reads compute *effective* confidence — the base
+halved per 90-day half-life since last reinforcement (floor 0.05) — and
+return both. `--min-confidence` filters on the effective value, search ranks
+fact hits by it, and `--as-of` queries see period-appropriate decay.
+Commitments and decision-record facts never fade.
+
+Reinforcement is what counts as "use": re-asserting an existing fact (a
+session restates it, the code ingester re-derives it) resets its clock and
+raises its base toward a per-source ceiling (`decision-record` 1.0, `code`
+0.95, `user-assertion` 0.9, `session-log` 0.7, `inferred` 0.6) — so a fact
+re-derived 500 times stays distinguishable from a human decision. The
+ingester synergy does most of the work: every code pass reinforces what the
+code still says, reconciliation invalidates what it stopped saying, and
+decay is left fading the session-derived facts nobody restates. Maintenance
+scans never reinforce — only intent writes do.
+
 ## Maintenance
 
 - `consolidate` — the Dreaming-style offline pass: LLM-summarizes and closes
   open episodes (summaries are full-text indexed, so episodic history becomes
-  searchable — "why did we do X" is a query), judges open conflicts, decays
-  stale confidence, and reports `x/*` predicates earning promotion review.
-  Falls back to a mechanical digest when the LLM is unavailable, so the pass
-  always makes progress.
+  searchable — "why did we do X" is a query), judges open conflicts, sweeps
+  for conflict candidates the write path can't see, and reports `x/*`
+  predicates earning promotion review. Falls back to a mechanical digest when
+  the LLM is unavailable, so the pass always makes progress.
 - `judge` — LLM review of open conflicts on its own (see "How conflicts
   resolve").
-- `decay` — soft forgetting on its own: confidence decays on stale facts;
-  commitments and decision-record facts never decay.
 - `dump` — export everything as JSONL: the portability story. The live LMDB
   directory is gitignored; the dump is the committable artifact.
 
