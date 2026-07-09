@@ -48,6 +48,19 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
 
 ## Next up
 
+- [ ] **Auto-memory consumption loop** (design: `docs/consuming-auto-memory.md`).
+      In build order: (1) `ingest-notes --harness claude-code` — delta-detect
+      the harness's auto-memory dir, extract via the session-extract
+      machinery with a notes-tuned prompt, new `agent-note` source-type
+      (inference-grade ceiling, never mints commitments), NO reconciliation —
+      compacted-away notes fade by disuse instead of invalidating;
+      (2) `compile-context` — deterministic, budgeted graph view (current
+      facts, standing commitments, open conflicts, recent supersessions)
+      written into a marker-delimited managed section of MEMORY.md that
+      ingest-notes excludes (echo-loop guard); (3) SessionEnd hook wiring;
+      (4) Codex adapter (`~/.codex/memories/`, evidence-file provenance) to
+      prove the cross-harness abstraction; (5) bench fixture for
+      compaction/decay semantics and the echo guard.
 - [ ] **Failure ingester.** When agent work is rejected or reverted, extract
       why — this is where procedural memory grows from.
 - [ ] **Decision-record (ADR) ingester.** Highest-authority source; parse ADR
