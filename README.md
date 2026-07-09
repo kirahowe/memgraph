@@ -276,5 +276,7 @@ store at all; the session suite injects a fake extractor and never shells out.
 - `TODO.md` — remaining roadmap and decisions taken.
 - `docs/agent-memory-synthesis.md` — the conceptual landscape this grew from.
 - `docs/memgraph-handoff.md` — design decisions, rationale, and open forks.
+- `docs/memory-systems-comparison.md` — field comparison (July 2026): built-in
+  harness memory, platforms, OSS/research systems, and where memgraph stands.
 - `.claude/skills/memgraph/SKILL.md` — the usage judgment: when an agent should
   consult, write, and how to phrase facts.

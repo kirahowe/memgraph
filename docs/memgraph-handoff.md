@@ -498,6 +498,8 @@ thing worth building.
   end-state schema.
 - *(this doc)* `memgraph-handoff.md` — the build: decisions, rationale, schema,
   operation surface, registry, constraints, open forks.
+- `memory-systems-comparison.md` — the field comparison (July 2026): updates
+  and corrections to the survey tables in §9 here and §9 of the synthesis doc.
 
 -----
 
