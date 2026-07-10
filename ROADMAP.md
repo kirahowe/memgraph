@@ -93,10 +93,14 @@ so; score whether reads surface current truth, the sweep finds the conflict,
 and decay buries the stale fact. The field measures ~55% on this axis; our
 machinery is built for it. *(review §4.3.2, STALE)*
 
-### 7. Abstention tier
+### 7. Abstention tier ✅ *(2026-07-10 — retrieval layer)*
 Questions whose correct answer is "the graph doesn't know" — score refusal vs
 confabulation at both the retrieval layer and the skill layer.
 *(review §4.3.3)*
+*Shipped: the retrieval-layer mechanics (near-miss refusal without minting,
+empty-not-garbage on unknown aspects, as-of before knowledge, empty search).
+The skill layer ("does the agent say so") needs the agent harness — it lands
+with issue 12's A/B arms.*
 
 ### 8. Poisoning red-team case
 One fixture session with a planted instruction-shaped "preference" and a

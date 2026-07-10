@@ -201,4 +201,29 @@
                                  ((juxt :fact :candidate) pair)))}))
     :expect {:found true
              :subjects #{"shoply.cache"}
-             :objects #{"shoplydb"}}}])
+             :objects #{"shoplydb"}}}
+
+   {:id :q22 :capability :abstention
+    :desc "a near-miss entity name refuses instead of fuzzy-guessing, and nothing gets minted"
+    :run (fn [s]
+           {:refusal (try (core/get-facts s {:entity "shoply.ap"})
+                          (catch clojure.lang.ExceptionInfo e (:type (ex-data e))))
+            :minted (some? (store/-get-entity s "shoply.ap" logic/default-scope))})
+    :expect {:refusal :entity-not-found :minted false}}
+
+   {:id :q23 :capability :abstention
+    :desc "a known entity, an unknown aspect: empty, not near-miss garbage"
+    :run (fn [s] (object-seq s {:entity "shoply.api" :predicate :core/tested-by}))
+    :expect []}
+
+   {:id :q24 :capability :abstention
+    :desc "before the project began, the graph knows nothing — as-of abstains"
+    :run (fn [s] (object-seq s {:entity "shoply" :predicate :core/has-version
+                                :as-of (date "2025-12-01")}))
+    :expect []}
+
+   {:id :q25 :capability :abstention
+    :desc "search for what was never recorded comes back empty on every axis"
+    :run (fn [s] (let [r (core/search s "postgres" {})]
+                   (mapv (comp count val) (select-keys r [:entities :facts :episodes]))))
+    :expect [0 0 0]}])
