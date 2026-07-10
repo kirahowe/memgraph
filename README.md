@@ -276,5 +276,10 @@ store at all; the session suite injects a fake extractor and never shells out.
 - `TODO.md` — remaining roadmap and decisions taken.
 - `docs/agent-memory-synthesis.md` — the conceptual landscape this grew from.
 - `docs/memgraph-handoff.md` — design decisions, rationale, and open forks.
+- `docs/memory-systems-comparison.md` — field comparison (July 2026): built-in
+  harness memory, platforms, OSS/research systems, and where memgraph stands.
+- `docs/consuming-auto-memory.md` — design note: consume the harnesses'
+  auto-memory as an ingestion tier and compile the graph back into their
+  injection surface (the ambient loop).
 - `.claude/skills/memgraph/SKILL.md` — the usage judgment: when an agent should
   consult, write, and how to phrase facts.
