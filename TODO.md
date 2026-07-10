@@ -3,6 +3,12 @@
 Remaining roadmap, in rough priority order. Rationale for most items lives in
 `docs/memgraph-handoff.md` §7.
 
+> **Superseded by [`ROADMAP.md`](ROADMAP.md)** (2026-07-09), which sequences
+> these items together with the July 2026 research round
+> (`docs/memory-systems-comparison.md`, `docs/memagent-2026-review.md`,
+> `docs/consuming-auto-memory.md`). The "Next up" list below is kept for
+> history; the roadmap is the current ordering.
+
 ## Review feedback round (2026-06-11) — being addressed in order
 
 - [x] 1. Traversal chattiness: BFS now hands its whole frontier to
