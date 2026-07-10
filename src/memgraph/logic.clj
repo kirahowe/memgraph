@@ -444,6 +444,79 @@
   [s]
   (-> (str s) str/lower-case (str/replace #"[\s\-_./]+" "")))
 
+;; ---------------------------------------------------------------------------
+;; Admission control (pure; review §3.3, A-MAC/SAGE)
+;; ---------------------------------------------------------------------------
+
+(def admission-floor-confidence 0.3)
+(def max-subject-chars 80)
+(def max-literal-chars 250)
+
+(defn admission-signals
+  "Rule-based admission signals for one extracted candidate — structured and
+  interpretable, no LLM (the optional utility signal stays unspent). ctx:
+  {:known-norms #{normalized entity names} :known-preds #{predicate ids}}."
+  [{:keys [subject predicate object confidence epistemic class]} ctx]
+  (let [pred-kw (->kw (when predicate (str/replace (str predicate) "_" "-")))
+        pred-known? (or (contains? (:known-preds ctx)
+                                   (keyword "core" (name (or pred-kw :none))))
+                        (contains? (:known-preds ctx) pred-kw))]
+    {:above-floor (>= (double (or confidence 0.5)) admission-floor-confidence)
+     :subject-shaped (<= (count (str subject)) max-subject-chars)
+     :object-sane (<= (count (str object)) max-literal-chars)
+     :predicate-known pred-known?
+     :subject-known (contains? (:known-norms ctx)
+                               (normalize-entity-name (str subject)))
+     :class-weight (case (->kw (or epistemic class))
+                     :commitment 1.0
+                     :preference 0.8
+                     0.5)}))
+
+(defn admit?
+  "The hard rules: junk-shaped candidates never reach the graph. Soft
+  signals (unknown subject, coined predicate, class weight) inform the
+  score, not the verdict — extraction is already source-capped and the raw
+  tier keeps the log, so admission only screens shape and floor."
+  [{:keys [above-floor subject-shaped object-sane]}]
+  (boolean (and above-floor subject-shaped object-sane)))
+
+(defn admission-score
+  "One number for observability and future thresholds: hard rules zero it,
+  soft signals scale it."
+  [{:keys [above-floor subject-shaped object-sane predicate-known
+           subject-known class-weight] :as _signals}]
+  (if-not (and above-floor subject-shaped object-sane)
+    0.0
+    (* class-weight
+       (+ 0.6
+          (if predicate-known 0.25 0.0)
+          (if subject-known 0.15 0.0)))))
+
+(defn admission-ctx
+  "Entities + predicate rows -> the ctx admission-signals reads."
+  [entities predicates]
+  {:known-norms (into #{}
+                      (comp (mapcat (fn [e] (cons (:name e) (:aliases e))))
+                            (remove nil?)
+                            (map normalize-entity-name))
+                      entities)
+   :known-preds (into #{} (map :id) predicates)})
+
+(defn screen-candidates
+  "Pure: split prepared candidates into the admitted and the inadmissible,
+  each inadmissible one carrying its signals — gate the graph, keep the
+  log."
+  [facts ctx]
+  (let [judged (map (fn [f]
+                      (let [sig (admission-signals f ctx)]
+                        (assoc f
+                               :admission-signals sig
+                               :admission-score (admission-score sig)
+                               :admit (admit? sig))))
+                    facts)]
+    {:admitted (mapv #(dissoc % :admission-signals :admit) (filter :admit judged))
+     :inadmissible (mapv #(dissoc % :admit) (remove :admit judged))}))
+
 (defn same-object-loosely?
   "Do two facts point at the same thing, across the entity/literal divide?
   decided-against \"GraphQL\" (literal) and prefers GraphQL (entity) are the

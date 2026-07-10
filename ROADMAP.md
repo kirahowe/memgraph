@@ -225,7 +225,7 @@ interrupting with — standing decisions being the obvious trigger.
 Goal: close the remaining literature-flagged gaps once the loop is proven and
 retrieval carries its weight.
 
-### 22. Admission scoring on the ingest path
+### 22. Admission scoring on the ingest path ✅ *(2026-07-10)*
 Compose the ingredients we already have (novelty/duplicate detection,
 epistemic-class prior, source typing) into an explicit rule-based
 admit/reject score with at most one optional LLM utility signal. Requires the

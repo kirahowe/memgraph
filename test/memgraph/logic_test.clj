@@ -266,3 +266,33 @@
   (is (= {:epistemic :commitment}
          (logic/normalize-ingest-fact {:epistemic :commitment :class "preference"}))
       "explicit :epistemic wins over :class"))
+
+(deftest admission-control-screens-shape-not-substance
+  (let [ctx (logic/admission-ctx [{:name "AuthService" :aliases ["auth-svc"]}]
+                                 [{:id :core/prefers} {:id :core/depends-on}])
+        good {:subject "AuthService" :predicate "prefers"
+              :object "argon2" :confidence 0.7 :epistemic :preference}
+        junk-subject {:subject (apply str (repeat 120 "x")) :predicate "prefers"
+                      :object "y" :confidence 0.7}
+        junk-floor {:subject "A" :predicate "prefers" :object "y" :confidence 0.1}
+        junk-essay {:subject "A" :predicate "prefers"
+                    :object (apply str (repeat 300 "words ")) :confidence 0.7}
+        novel {:subject "BrandNewThing" :predicate "x/odd-relation"
+               :object "z" :confidence 0.5}]
+    (testing "hard rules gate shape and floor"
+      (is (logic/admit? (logic/admission-signals good ctx)))
+      (is (not (logic/admit? (logic/admission-signals junk-subject ctx))))
+      (is (not (logic/admit? (logic/admission-signals junk-floor ctx))))
+      (is (not (logic/admit? (logic/admission-signals junk-essay ctx)))))
+    (testing "soft signals scale the score, never the verdict"
+      (let [sig-good (logic/admission-signals good ctx)
+            sig-novel (logic/admission-signals novel ctx)]
+        (is (logic/admit? sig-novel) "unknown subject + coined predicate still admits")
+        (is (> (logic/admission-score sig-good) (logic/admission-score sig-novel)))))
+    (testing "screen splits and keeps the log"
+      (let [{:keys [admitted inadmissible]} (logic/screen-candidates
+                                             [good junk-floor] ctx)]
+        (is (= ["AuthService"] (mapv :subject admitted)))
+        (is (= 1 (count inadmissible)))
+        (is (false? (get-in (first inadmissible) [:admission-signals :above-floor]))
+            "the inadmissible carry their signals — auditable, not silent")))))

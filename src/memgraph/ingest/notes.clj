@@ -22,6 +22,7 @@
             [memgraph.harness :as harness]
             [memgraph.ingest.session :as session]
             [memgraph.llm :as llm]
+            [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
 (def max-confidence 0.65)
@@ -156,12 +157,15 @@
        vec))
 
 (defn- ingest-note! [s run harness-id {:keys [path content hash]}
-                     {:keys [predicates roster evidence-dir dry-run]}]
+                     {:keys [predicates roster actx evidence-dir dry-run]}]
   (let [prompt (extraction-prompt path content predicates roster)
-        {:keys [facts demoted rejected]} (prepare-note-facts (session/parse-extraction (run prompt)))]
+        {:keys [facts demoted rejected]} (prepare-note-facts (session/parse-extraction (run prompt)))
+        {:keys [admitted inadmissible]} (logic/screen-candidates facts actx)
+        facts admitted]
     (if dry-run
-      {:file path :hash hash :status :dry-run :facts facts
-       :demoted demoted :rejected rejected}
+      (cond-> {:file path :hash hash :status :dry-run :facts facts
+               :demoted demoted :rejected rejected}
+        (seq inadmissible) (assoc :inadmissible inadmissible))
       (let [ref (episode-ref harness-id path hash)
             evidence (when evidence-dir
                        ((requiring-resolve 'memgraph.evidence/write!)
@@ -177,7 +181,8 @@
                                              (count rejected) " rejected")})
         (-> result
             (assoc :file path :hash hash :demoted demoted)
-            (cond-> (seq rejected) (assoc :rejected rejected)))))))
+            (cond-> (seq inadmissible) (assoc :inadmissible inadmissible)
+                    (seq rejected) (assoc :rejected rejected)))))))
 
 (defn ingest!
   "One notes pass: delta-detect the harness's auto-memory directory, extract
@@ -202,10 +207,13 @@
       (let [notes (read-notes notes-dir)
             changed (changed-notes notes (seen-hashes (store/-list-episodes s) (:id h)))
             run (or extractor-fn (partial llm/complete! (llm/command extractor)))
-            ctx {:predicates (store/-list-predicates s {:status :stable})
-                 :roster (session/entity-roster (store/-list-entities s {})
+            entities (store/-list-entities s {})
+            predicates (store/-list-predicates s {:status :stable})
+            ctx {:predicates predicates
+                 :roster (session/entity-roster entities
                                                 (store/-entity-usage s)
                                                 session/roster-limit)
+                 :actx (logic/admission-ctx entities predicates)
                  :evidence-dir evidence-dir
                  :dry-run dry-run}
             results (mapv #(ingest-note! s run (:id h) % ctx) changed)]

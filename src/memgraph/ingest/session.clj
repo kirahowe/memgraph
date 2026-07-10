@@ -149,22 +149,28 @@
         :dry-run (extract and report, write nothing)"
   [s {:keys [file transcript ref extractor extractor-fn evidence-dir dry-run]}]
   (let [content (or transcript (if file (slurp file) (slurp *in*)))
+        entities (store/-list-entities s {})
+        predicates (store/-list-predicates s {:status :stable})
         run (or extractor-fn
                 (partial llm/complete! (llm/command extractor)))
         prompt (extraction-prompt (->transcript content)
-                                  (store/-list-predicates s {:status :stable})
-                                  (entity-roster (store/-list-entities s {})
+                                  predicates
+                                  (entity-roster entities
                                                  (store/-entity-usage s)
                                                  roster-limit))
-        {:keys [facts rejected]} (prepare-facts (parse-extraction (run prompt)))]
+        {:keys [facts rejected]} (prepare-facts (parse-extraction (run prompt)))
+        {:keys [admitted inadmissible]} (logic/screen-candidates
+                                         facts (logic/admission-ctx entities predicates))]
     (if dry-run
-      {:status :dry-run :facts facts :rejected rejected}
+      (cond-> {:status :dry-run :facts admitted :rejected rejected}
+        (seq inadmissible) (assoc :inadmissible inadmissible))
       (let [evidence (when evidence-dir
                        ((requiring-resolve 'memgraph.evidence/write!)
                         evidence-dir content))]
         (cond-> (core/ingest s {:source-type :session-log
                                 :ref (or ref (some-> file str) "session")
                                 :evidence evidence}
-                             facts)
+                             admitted)
           evidence (assoc :evidence evidence)
+          (seq inadmissible) (assoc :inadmissible inadmissible)
           (seq rejected) (assoc :rejected rejected))))))

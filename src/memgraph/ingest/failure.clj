@@ -19,6 +19,7 @@
             [memgraph.core :as core]
             [memgraph.ingest.session :as session]
             [memgraph.llm :as llm]
+            [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
 (defn extraction-prompt
@@ -59,22 +60,28 @@
         :ref :extractor :extractor-fn :evidence-dir :dry-run"
   [s {:keys [file transcript context ref extractor extractor-fn evidence-dir dry-run]}]
   (let [material (or transcript (if file (slurp file) (slurp *in*)))
+        entities (store/-list-entities s {})
+        predicates (store/-list-predicates s {:status :stable})
         run (or extractor-fn (partial llm/complete! (llm/command extractor)))
         prompt (extraction-prompt context
                                   (session/->transcript material)
-                                  (store/-list-predicates s {:status :stable})
-                                  (session/entity-roster (store/-list-entities s {})
+                                  predicates
+                                  (session/entity-roster entities
                                                          (store/-entity-usage s)
                                                          session/roster-limit))
-        {:keys [facts rejected]} (session/prepare-facts (session/parse-extraction (run prompt)))]
+        {:keys [facts rejected]} (session/prepare-facts (session/parse-extraction (run prompt)))
+        {:keys [admitted inadmissible]} (logic/screen-candidates
+                                         facts (logic/admission-ctx entities predicates))]
     (if dry-run
-      {:status :dry-run :facts facts :rejected rejected}
+      (cond-> {:status :dry-run :facts admitted :rejected rejected}
+        (seq inadmissible) (assoc :inadmissible inadmissible))
       (let [evidence (when evidence-dir
                        ((requiring-resolve 'memgraph.evidence/write!)
                         evidence-dir material))]
         (cond-> (core/ingest s {:source-type :failure-report
                                 :ref (or ref (some-> file str) "failure")
                                 :evidence evidence}
-                             facts)
+                             admitted)
           evidence (assoc :evidence evidence)
+          (seq inadmissible) (assoc :inadmissible inadmissible)
           (seq rejected) (assoc :rejected rejected))))))
