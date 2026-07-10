@@ -131,13 +131,23 @@ spot — this is also the trigger data for issue 27), and add a contamination
 control: fixture entities with swapped names so correct answers must come
 from the graph, not parametric knowledge. *(review §4.3.9, DialSim)*
 
-### 12. The headline four-arm end-task A/B
+### 12. The headline four-arm end-task A/B ◐ *(2026-07-10 — harness + pilot)*
 Same tasks, same agent, four arms: no memory · static context file ·
 auto-memory (the actual incumbent) · memgraph. Measure task success, tokens,
 wall-clock, and re-litigation counts. Beating "no memory" is table stakes;
 beating auto-memory is the product claim. Even n=20 task pairs says more than
 any retrieval metric. Depends on Phase 1 (the memgraph arm *is* the ambient
 loop). *(review §4.3.1; protocol from the AGENTS.md oral + SWE-ContextBench)*
+*Shipped: `bb bench ab` (7 memory-dependent tasks, JSON-scored, incl. the
+skill-layer abstention probe from #7). Pilot (n=7, one run per arm, claude
+-p): memgraph **0.71** · none 0.43 · static 0.43 (1 confabulation off the
+stale file) · auto-memory **0.29** (below no-memory — the compacted pile plus
+the planted note actively mislead; the AGENTS.md result reproduced).
+memgraph's two misses: hosting = the poisoning leak reaching an end task
+(confidently answered Heroku off the planted fact — issue 23's cost, now
+measured), react-lang = honest abstention. Open: grow to n≈20 task pairs and
+multiple runs for CIs; add a queryable-CLI arm variant (pull-side judgment,
+not just the compiled view).*
 
 ### 13. Retrieval-vs-structure ablation ✅ *(2026-07-10)*
 memgraph full vs raw chunks + BM25/embeddings vs memgraph with degraded
