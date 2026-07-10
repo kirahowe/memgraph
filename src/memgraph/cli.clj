@@ -186,6 +186,13 @@
         (emit opts (ingest-notes s (select-keys opts [:harness :dir :project
                                                       :extractor :dry-run])))))))
 
+(defn cmd-compile-context [{:keys [opts]}]
+  (let [compile-context (requiring-resolve 'memgraph.context/compile!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (compile-context s (select-keys opts [:harness :dir :project
+                                                         :budget :dry-run])))))))
+
 (defn cmd-dump [{:keys [opts]}]
   (with-store opts
     (fn [s]
@@ -293,6 +300,18 @@ Commands:
                         reconciliation: notes the harness compacts away fade by
                         disuse instead of being invalidated. The managed
                         memgraph section of MEMORY.md is never re-consumed.
+  compile-context     Compile the graph's current view into the managed
+                        section of the file the harness auto-injects
+                        (Claude Code: the head of MEMORY.md) — the ambient
+                        read path. Deterministic (no LLM), budgeted,
+                        idempotent; only the marker-delimited block is
+                        rewritten, the harness's own notes stay untouched.
+                        Sections in priority order: standing decisions,
+                        open conflicts, recent supersessions, top current
+                        facts by effective confidence (code-derived facts
+                        excluded — the view carries what the code can't say).
+                        [--harness claude-code] [--project DIR] [--dir NOTES_DIR]
+                        [--budget 25000] [--dry-run]
   dump                Export everything as JSONL [--out FILE]
   stats               Store counts
   consolidate         Offline consolidation pass: LLM-summarize and close open
@@ -339,6 +358,8 @@ Commands:
    {:cmds ["ingest"] :fn cmd-ingest}
    {:cmds ["session-extract"] :fn cmd-session-extract :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["ingest-notes"] :fn cmd-ingest-notes :spec {:dry-run {:coerce :boolean}}}
+   {:cmds ["compile-context"] :fn cmd-compile-context
+    :spec {:budget {:coerce :long} :dry-run {:coerce :boolean}}}
    {:cmds ["dump"] :fn cmd-dump}
    {:cmds ["stats"] :fn cmd-stats}
    {:cmds ["consolidate"] :fn cmd-consolidate

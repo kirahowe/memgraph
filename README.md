@@ -237,6 +237,18 @@ scans never reinforce — only intent writes do.
 
 ## Maintenance
 
+- `compile-context` — the write-back half of the ambient loop
+  (`docs/consuming-auto-memory.md`): compiles the graph's current view into a
+  marker-delimited managed section at the head of the file the harness
+  auto-injects (Claude Code: `MEMORY.md`), so every session starts with it for
+  free. Deterministic (no LLM), budgeted (25 KB default — the injection
+  window), idempotent. Priority order: standing decisions (never relitigate),
+  open conflicts, recent supersessions ("Heroku → Fly on 2026-06-02" — the
+  what-changed briefing), top current facts by effective confidence, with
+  code-derived facts excluded — the injected view carries only what the code
+  can't say. `ingest-notes` strips the managed section before hashing, so
+  compile → ingest → compile is a fixed point: the graph never re-consumes
+  its own view.
 - `consolidate` — the Dreaming-style offline pass: LLM-summarizes and closes
   open episodes (summaries are full-text indexed, so episodic history becomes
   searchable — "why did we do X" is a query), judges open conflicts, sweeps

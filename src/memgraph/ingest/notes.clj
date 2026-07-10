@@ -138,15 +138,22 @@
 
 (defn- read-notes
   "Scan the notes dir: every markdown file, managed section stripped, hashed.
-  Unknown layout degrades gracefully — anything *.md is a plain note."
+  Unknown layout degrades gracefully — anything *.md is a plain note. Files
+  that are blank once stripped (e.g. a MEMORY.md holding only our compiled
+  view) are skipped outright: nothing to extract, and the fixed point of
+  compile → ingest → compile must not depend on the extractor's judgment.
+  Content is trimmed before hashing so the whitespace seam a first
+  compile-context splice leaves around the notes never reads as a change."
   [dir]
   (->> (fs/glob dir "**.md")
        sort
-       (mapv (fn [p]
-               (let [content (harness/strip-managed-section (slurp (str p)))]
-                 {:path (str (fs/relativize dir p))
-                  :content content
-                  :hash (content-hash content)})))))
+       (keep (fn [p]
+               (let [content (str/trim (harness/strip-managed-section (slurp (str p))))]
+                 (when-not (str/blank? content)
+                   {:path (str (fs/relativize dir p))
+                    :content content
+                    :hash (content-hash content)}))))
+       vec))
 
 (defn- ingest-note! [s run harness-id {:keys [path content hash]} {:keys [predicates roster dry-run]}]
   (let [prompt (extraction-prompt path content predicates roster)

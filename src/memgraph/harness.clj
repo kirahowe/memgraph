@@ -27,6 +27,22 @@
             after (if end (subs s (+ end (count end-marker))) "")]
         (str (subs s 0 begin) after)))))
 
+(defn splice-managed-section
+  "Replace the marker-delimited managed section of content with inner
+  (markers re-added around it), or insert the block at the TOP when absent —
+  the harness injects the head of the file, so the compiled view must sit
+  inside that window. Splice-then-strip returns the original non-managed
+  content unchanged."
+  [content inner]
+  (let [s (str content)
+        block (str begin-marker "\n" inner "\n" end-marker)
+        begin (str/index-of s begin-marker)]
+    (if-not begin
+      (if (str/blank? s) (str block "\n") (str block "\n\n" s))
+      (let [end (str/index-of s end-marker begin)
+            after (if end (subs s (+ end (count end-marker))) "")]
+        (str (subs s 0 begin) block after)))))
+
 (defn munge-project-path
   "Claude Code's project-directory munging: the absolute project path with
   every non-alphanumeric character replaced by '-'

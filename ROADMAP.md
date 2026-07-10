@@ -52,7 +52,7 @@ disuse decay already models it). Every note-derived fact goes through the
 full conflict machinery — that's the value-add over the pile.
 *(consuming-auto-memory §2; comparison §4 "behind the field" #1)*
 
-### 2. `compile-context` — the graph writes the injected view back
+### 2. `compile-context` — the graph writes the injected view back ✅ *(2026-07-10)*
 Deterministic, budgeted compilation of "what's currently true" into a
 marker-delimited managed section of `MEMORY.md`: top valid facts, standing
 commitments, open conflicts, recent supersessions. The harness injects it for
