@@ -178,7 +178,7 @@ the review: extract the lesson, not the diff; preferentially capture lessons
 about mutating actions. Supplies the valence half of issue 24.
 *(TODO #1; review §3.4)*
 
-### 16. Decision-record (ADR) ingester
+### 16. Decision-record (ADR) ingester ✅ *(2026-07-10)*
 Highest-authority source; parse ADR files into `supersedes` /
 `decided-against` / `has-status` commitments. spec-kit's
 constitution/spec output is now the largest authoring pipeline in the field —

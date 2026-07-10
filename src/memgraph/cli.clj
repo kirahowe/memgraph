@@ -192,6 +192,11 @@
                                                              :extractor :dry-run])
                                           :evidence-dir (evidence-dir opts))))))))
 
+(defn cmd-ingest-adr [{:keys [opts]}]
+  (let [ingest-adr (requiring-resolve 'memgraph.ingest.adr/ingest!)]
+    (with-store opts
+      (fn [s] (emit opts (ingest-adr s (select-keys opts [:dir :file :dry-run])))))))
+
 (defn cmd-ingest-failure [{:keys [opts]}]
   (let [extract (requiring-resolve 'memgraph.ingest.failure/extract!)]
     (with-store opts
@@ -365,6 +370,14 @@ Commands:
                         reconciliation: notes the harness compacts away fade by
                         disuse instead of being invalidated. The managed
                         memgraph section of MEMORY.md is never re-consumed.
+  ingest-adr          Mechanically parse decision records (no LLM): --dir D |
+                        --file F [--dry-run]; default dirs docs/adr,
+                        docs/decisions, adr. Title/filename -> the ADR
+                        entity; Status: -> has-status (a change supersedes,
+                        history accumulates); Supersedes:/Superseded by: ->
+                        revision edges; considered-options-minus-chosen and
+                        Rejected: -> decided-against commitments. All at
+                        decision-record authority (1.0).
   ingest-failure      Extract lessons from rejected/reverted/failed work
                         (review text, revert message, error transcript):
                         --file F | stdin [--context \"what was attempted\"]
@@ -454,6 +467,7 @@ Commands:
    {:cmds ["session-extract"] :fn cmd-session-extract :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["ingest-notes"] :fn cmd-ingest-notes :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["ingest-failure"] :fn cmd-ingest-failure :spec {:dry-run {:coerce :boolean}}}
+   {:cmds ["ingest-adr"] :fn cmd-ingest-adr :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["compile-context"] :fn cmd-compile-context
     :spec {:budget {:coerce :long} :dry-run {:coerce :boolean}}}
    {:cmds ["hooks" "run"] :fn cmd-hooks-run

@@ -1,5 +1,6 @@
 (ns memgraph.run-tests
   (:require [clojure.test :as t]
+            [memgraph.adr-test]
             [memgraph.bench-test]
             [memgraph.code-ingest-test]
             [memgraph.consolidate-test]
@@ -20,6 +21,7 @@
                                           'memgraph.load-test
                                           'memgraph.evidence-test
                                           'memgraph.failure-test
+                                          'memgraph.adr-test
                                           'memgraph.code-ingest-test
                                           'memgraph.session-test
                                           'memgraph.notes-test
