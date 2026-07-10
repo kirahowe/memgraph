@@ -273,9 +273,14 @@ store at all; the session suite injects a fake extractor and never shells out.
 
 ## Documents
 
-- `TODO.md` — remaining roadmap and decisions taken.
+- `ROADMAP.md` — the current build plan: 28 ordered issues from the July 2026
+  research round.
+- `TODO.md` — earlier roadmap and decisions taken (ordering superseded by
+  `ROADMAP.md`).
 - `docs/agent-memory-synthesis.md` — the conceptual landscape this grew from.
 - `docs/memgraph-handoff.md` — design decisions, rationale, and open forks.
+- `docs/memagent-2026-review.md` — memgraph vs the ICLR 2026 MemAgents
+  workshop and the 2026 field: validated bets, gaps, benchmark plan.
 - `docs/memory-systems-comparison.md` — field comparison (July 2026): built-in
   harness memory, platforms, OSS/research systems, and where memgraph stands.
 - `docs/consuming-auto-memory.md` — design note: consume the harnesses'
