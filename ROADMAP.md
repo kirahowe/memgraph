@@ -139,7 +139,7 @@ beating auto-memory is the product claim. Even n=20 task pairs says more than
 any retrieval metric. Depends on Phase 1 (the memgraph arm *is* the ambient
 loop). *(review §4.3.1; protocol from the AGENTS.md oral + SWE-ContextBench)*
 
-### 13. Retrieval-vs-structure ablation
+### 13. Retrieval-vs-structure ablation ✅ *(2026-07-10)*
 memgraph full vs raw chunks + BM25/embeddings vs memgraph with degraded
 retrieval. Publish where structure pays (history, time-travel, conflicts) and
 where it doesn't (plain recall) — the negative half is what makes the

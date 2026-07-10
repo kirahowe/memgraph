@@ -318,6 +318,14 @@
     (= "llm" (first args))
     (print-llm (run-llm {:judge-runs (or (some-> (second args) parse-long) 3)}))
 
+    ;; the retrieval-vs-structure ablation (deterministic, no LLM):
+    ;;   bb bench ablation [k]
+    (= "ablation" (first args))
+    (let [run (requiring-resolve 'memgraph.bench.ablation/run-ablation)
+          print' (requiring-resolve 'memgraph.bench.ablation/print-ablation)]
+      (with-timeline-store
+        (fn [s] (print' (run s {:k (or (some-> (second args) parse-long) 3)})))))
+
     ;; the headline four-arm A/B (informational, spends real agent calls):
     ;;   bb bench ab                  all four arms, all tasks
     ;;   bb bench ab none memgraph    a pilot on selected arms
