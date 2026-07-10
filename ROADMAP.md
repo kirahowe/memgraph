@@ -171,7 +171,7 @@ sufficiency escalation (issue 20) and safe admission control (issue 22).
 Notes-as-primary, transcripts-as-fallback posture per the double-coverage
 caveat. *(review §3.1 — its top-priority gap; consuming-auto-memory §7)*
 
-### 15. Failure ingester
+### 15. Failure ingester ✅ *(2026-07-10)*
 When agent work is rejected or reverted, extract *why* — the top standing
 TODO item. The literature supplies the design guardrails already captured in
 the review: extract the lesson, not the diff; preferentially capture lessons

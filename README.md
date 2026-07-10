@@ -23,7 +23,7 @@ Two native binaries, no JVM:
 
 ```bash
 scripts/setup.sh        # installs babashka (bb) + the Datalevin pod binary (dtlv)
-bin/memgraph init       # creates ./.memgraph/db and seeds the 22-predicate vocabulary
+bin/memgraph init       # creates ./.memgraph/db and seeds the 23-predicate vocabulary
 ```
 
 ## Quickstart
@@ -109,7 +109,7 @@ runs the sweep as a stage.
 
 ## The vocabulary
 
-22 curated `core/*` predicates across four categories (structural, procedural,
+23 curated `core/*` predicates across four categories (structural, procedural,
 decision, provenance), each a first-class queryable row in the same store with
 object-kind, cardinality, default epistemic class, and a `maps-to` anchor to an
 established standard (PROV-O / SPDX / DOAP / Dublin Core).

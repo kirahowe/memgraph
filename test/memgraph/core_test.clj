@@ -34,12 +34,12 @@
 
 (deftest seed-vocabulary
   (with-stores [s]
-    (is (= 22 (count (store/-list-predicates s {}))))
+    (is (= 23 (count (store/-list-predicates s {}))))
     (is (= :entity (:object-kind (store/-get-predicate s :core/depends-on))))
     (is (= :commitment (:default-epistemic (store/-get-predicate s :core/decided-against))))
     (testing "seeding is idempotent"
       (core/seed! s)
-      (is (= 22 (count (store/-list-predicates s {})))))))
+      (is (= 23 (count (store/-list-predicates s {})))))))
 
 (deftest assert-and-read-basic
   (with-stores [s]
@@ -494,6 +494,6 @@
     (core/assert-fact s {:subject "A" :predicate :core/depends-on :object "B"})
     (let [records (core/dump s)
           types (frequencies (map :type records))]
-      (is (= 22 (types "predicate")))
+      (is (= 23 (types "predicate")))
       (is (= 2 (types "entity")))
       (is (= 1 (types "fact"))))))

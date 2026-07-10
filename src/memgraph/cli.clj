@@ -192,6 +192,14 @@
                                                              :extractor :dry-run])
                                           :evidence-dir (evidence-dir opts))))))))
 
+(defn cmd-ingest-failure [{:keys [opts]}]
+  (let [extract (requiring-resolve 'memgraph.ingest.failure/extract!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (extract s (assoc (select-keys opts [:file :ref :context
+                                                        :extractor :dry-run])
+                                     :evidence-dir (evidence-dir opts))))))))
+
 (defn cmd-evidence [{:keys [opts]}]
   (with-store opts
     (fn [s]
@@ -357,6 +365,15 @@ Commands:
                         reconciliation: notes the harness compacts away fade by
                         disuse instead of being invalidated. The managed
                         memgraph section of MEMORY.md is never re-consumed.
+  ingest-failure      Extract lessons from rejected/reverted/failed work
+                        (review text, revert message, error transcript):
+                        --file F | stdin [--context \"what was attempted\"]
+                        [--ref ID] [--dry-run] [--extractor CMD]
+                        The lesson, not the diff: known hazards land as
+                        failure-mode facts, corrective practices as prefers,
+                        human rulings as decided-against. Episode source-type
+                        failure-report (the valence signal), raw material
+                        kept as evidence. Capped at 0.7 like all extraction.
   compile-context     Compile the graph's current view into the managed
                         section of the file the harness auto-injects
                         (Claude Code: the head of MEMORY.md) — the ambient
@@ -436,6 +453,7 @@ Commands:
    {:cmds ["ingest"] :fn cmd-ingest}
    {:cmds ["session-extract"] :fn cmd-session-extract :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["ingest-notes"] :fn cmd-ingest-notes :spec {:dry-run {:coerce :boolean}}}
+   {:cmds ["ingest-failure"] :fn cmd-ingest-failure :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["compile-context"] :fn cmd-compile-context
     :spec {:budget {:coerce :long} :dry-run {:coerce :boolean}}}
    {:cmds ["hooks" "run"] :fn cmd-hooks-run

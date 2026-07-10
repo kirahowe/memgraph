@@ -61,6 +61,10 @@
     :object-kind :either :cardinality :many
     :status :stable :default-epistemic :observation :maps-to "LOCAL"
     :definition "Subject is deployed using the object mechanism, pipeline, or command."}
+   {:id :core/failure-mode :label "failure mode" :category :procedural
+    :object-kind :literal :cardinality :many
+    :status :stable :default-epistemic :observation :maps-to "LOCAL"
+    :definition "Subject has a known failure mode or hazard: the object records the lesson — what goes wrong, under what conditions, and what to do instead."}
 
    ;; ---- Decision / preference ----
    {:id :core/supersedes :label "supersedes" :category :decision

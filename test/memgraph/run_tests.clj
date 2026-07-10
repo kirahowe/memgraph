@@ -6,6 +6,7 @@
             [memgraph.context-test]
             [memgraph.core-test]
             [memgraph.evidence-test]
+            [memgraph.failure-test]
             [memgraph.hooks-test]
             [memgraph.judge-test]
             [memgraph.load-test]
@@ -18,6 +19,7 @@
                                           'memgraph.core-test
                                           'memgraph.load-test
                                           'memgraph.evidence-test
+                                          'memgraph.failure-test
                                           'memgraph.code-ingest-test
                                           'memgraph.session-test
                                           'memgraph.notes-test
