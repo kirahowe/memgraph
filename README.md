@@ -281,13 +281,15 @@ restates. Two layers, split by determinism:
 
 ```bash
 bb bench       # mechanics: recorded LLM outputs, real store and ingesters,
-               # 25 questions across retrieval / time-travel / history /
+               # 28 questions across retrieval / time-travel / history /
                # identity / conflicts / forgetting / provenance / ambient
                # (the notes loop: restatement reinforces, planted decisions
                # demote and flag, compaction ≠ falsity, echo guard holds) /
                # staleness (the code contradicts session facts and standing
                # decisions without anyone saying so) / abstention (refusal vs
-               # confabulation when the graph does not know).
+               # confabulation when the graph does not know) / poisoning (MINJA-
+               # style planted content: caps, decay differential, flag-not-
+               # override, quarantinable provenance).
                # Deterministic; non-zero exit below a perfect score, and it
                # runs in the test suite as a longitudinal regression gate.
 bb bench llm   # quality: the same graph, a real model ($MEMGRAPH_LLM_CMD).

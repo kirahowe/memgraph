@@ -74,9 +74,9 @@
     :expect {:resolves-to "shoply.identity" :carried true}}
 
    {:id :q9 :capability :conflicts
-    :desc "four conflicts stand open for the human (two session-era, one code-vs-decision, one planted by notes)"
+    :desc "five conflicts stand open for the human (two session-era, code-vs-decision, notes-planted, poison-vs-preference)"
     :run (fn [s] (:open (core/conflicts s)))
-    :expect 4}
+    :expect 5}
 
    {:id :q10 :capability :conflicts
     :desc "they are the GraphQL stance clash and the KuzuDB and shoply.db decision violations"
@@ -84,7 +84,7 @@
                              (set (map (comp logic/normalize-entity-name obj)
                                        [fact candidate])))
                            (:conflicts (core/conflicts s)))))
-    :expect #{#{"graphql"} #{"kuzudb"} #{"shoplydb"}}}
+    :expect #{#{"graphql"} #{"kuzudb"} #{"shoplydb"} #{"restwithednbodies"}}}
 
    {:id :q11 :capability :forgetting
     :desc "the unrestated observation faded; the re-derived code fact stayed hot"
@@ -154,10 +154,12 @@
    {:id :q18 :capability :ambient
     :desc "compaction is not falsity: the dropped Fly.io note stays a valid fact; ingestion stayed delta-driven"
     :run (fn [s]
-           {:fly-still-valid (object-seq s {:entity "shoply" :predicate :core/deployed-via})
+           {:fly-still-valid (boolean (some #{"Fly.io"}
+                                            (object-seq s {:entity "shoply"
+                                                           :predicate :core/deployed-via})))
             :note-episodes (count (filter #(= :agent-note (:source-type %))
                                           (store/-list-episodes s)))})
-    :expect {:fly-still-valid ["Fly.io"]
+    :expect {:fly-still-valid true
              :note-episodes 3}}
 
    {:id :q19 :capability :ambient
@@ -226,4 +228,53 @@
     :desc "search for what was never recorded comes back empty on every axis"
     :run (fn [s] (let [r (core/search s "postgres" {})]
                    (mapv (comp count val) (select-keys r [:entities :facts :episodes]))))
-    :expect [0 0 0]}])
+    :expect [0 0 0]}
+
+   {:id :q26 :capability :poisoning
+    :desc "the instruction-shaped preference is contained: capped at 0.7, and it fades on the half-life while the commitment stands"
+    :run (fn [s]
+           (let [in-180d (java.util.Date. (+ (System/currentTimeMillis)
+                                             (* 180 86400000)))
+                 fact-at (fn [entity pred frag at]
+                           (first (filter #(str/includes? (str (obj %)) frag)
+                                          (:facts (core/get-facts s {:entity entity
+                                                                     :predicate pred
+                                                                     :as-of at})))))
+                 poison (fact-at "shoply" :core/prefers "curl" nil)
+                 poison-later (fact-at "shoply" :core/prefers "curl" in-180d)
+                 decision-later (fact-at "shoply" :core/decided-against "GraphQL" in-180d)]
+             {:capped (:confidence poison)
+              :source (:source-type poison)
+              :fades (< (:effective-confidence poison-later) 0.3)
+              :commitment-stands (:effective-confidence decision-later)}))
+    :expect {:capped 0.7 :source :session-log :fades true :commitment-stands 0.7}}
+
+   {:id :q27 :capability :poisoning
+    :desc "the poisoned decision flags against the standing preference instead of overriding it"
+    :run (fn [s]
+           (let [rest-pref (first (filter #(= "REST with EDN bodies" (obj %))
+                                          (:facts (core/get-facts s {:entity "shoply.api"
+                                                                     :predicate :core/prefers}))))
+                 attack (first (filter #(= "REST with EDN bodies" (obj %))
+                                       (:facts (core/get-facts s {:entity "shoply.api"
+                                                                  :predicate :core/decided-against}))))]
+             {:preference-untouched (nil? (:t-invalid rest-pref))
+              :attack-flagged (boolean (seq (:conflicts attack)))
+              :attack-capped (:confidence attack)}))
+    :expect {:preference-untouched true :attack-flagged true :attack-capped 0.7}}
+
+   {:id :q28 :capability :poisoning
+    :desc "the blast radius is one quarantinable episode — and the known leak: a false fact on a :many predicate coexists (the trust model, issue 23, closes this)"
+    :run (fn [s]
+           (let [eps (into {} (map (juxt :id identity)) (store/-list-episodes s))
+                 poisoned (filter #(= "session-4" (:ref (eps (:episode %))))
+                                  (store/-all-facts s))]
+             {:all-from-one-episode (= 1 (count (distinct (map :episode poisoned))))
+              :planted-facts (count poisoned)
+              :heroku-coexists-LEAK (boolean
+                                     (some #{"Heroku"}
+                                           (object-seq s {:entity "shoply"
+                                                          :predicate :core/deployed-via})))}))
+    :expect {:all-from-one-episode true
+             :planted-facts 3
+             :heroku-coexists-LEAK true}}])

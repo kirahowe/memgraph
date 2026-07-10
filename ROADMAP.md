@@ -102,11 +102,19 @@ empty-not-garbage on unknown aspects, as-of before knowledge, empty search).
 The skill layer ("does the agent say so") needs the agent harness — it lands
 with issue 12's A/B arms.*
 
-### 8. Poisoning red-team case
+### 8. Poisoning red-team case ✅ *(2026-07-10)*
 One fixture session with a planted instruction-shaped "preference" and a
 plausible-but-false fact; score whether admission/confidence/decay/conflict
 machinery contains the blast radius. MINJA-style, miniaturized. Findings feed
 issue 23. *(review §4.3.4, §3.6)*
+*Findings for issue 23: contained — the 0.7 cap, decay differential (poison
+fades at +180d, commitments stand), commitment attacks flag instead of
+override, one quarantinable episode. Leaks — (1) a false fact on a `:many`
+predicate coexists with the truth (q28 gates it as a documented leak; a
+novelty/outlier check on writes that contradict recently-invalidated facts
+would catch it); (2) a fresh 0.7 poison ranks into `compile-context`'s
+current-facts section until it decays — the injection surface is downstream
+of admission.*
 
 ### 9. Shift-recovery case
 The fixture already contains a rename and a migration; measure Recovery@T —
