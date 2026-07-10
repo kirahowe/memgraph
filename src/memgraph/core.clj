@@ -424,18 +424,61 @@
                    vec)}))
 
 (defn search
-  "Full-text search. Fact hits are ranked by effective (disuse-decayed)
-  confidence — the FTS candidate set is bounded, so ranking in logic is the
-  same store-narrows/logic-decides split as everywhere else."
+  "Hybrid retrieval (the 20-point axis, review §3.2): three routes fused by
+  reciprocal rank weighted by effective confidence —
+
+    1. full-text over literals/names/summaries (the query as given),
+    2. entity resolution per query token (exact, alias, normalized — so
+       'auth-service' pulls AuthService's facts even when no literal
+       matches), facts touching each resolved entity in both directions,
+    3. the 1-hop neighborhood of those entities, at low weight (evidence
+       near the query, ranked below direct hits).
+
+  Store reads stay narrow (FTS candidates, per-entity fact sets, one
+  batched neighbor read); the fusion is pure (logic/fuse-retrieval).
+  Entities and episodes pass through from FTS untouched."
   [s query opts]
-  (let [t (now)]
-    (update (store/-search s query opts) :facts
-            (fn [fs]
-              (->> fs
-                   (map #(assoc % :effective-confidence
-                                (logic/effective-confidence % t)))
-                   (sort-by (comp - :effective-confidence))
-                   vec)))))
+  (let [t (now)
+        fts (store/-search s query opts)
+        fts-facts (->> (logic/query-tokens query)
+                       (mapcat #(:facts (store/-search s % {})))
+                       (concat (:facts fts))
+                       (reduce (fn [[seen out] f]
+                                 (if (seen (:id f))
+                                   [seen out]
+                                   [(conj seen (:id f)) (conj out f)]))
+                               [#{} []])
+                       second)
+        ents (->> (cons (str query) (logic/query-tokens query))
+                  distinct
+                  (keep #(:entity (resolve-entity s {:name %})))
+                  (map (juxt :id identity))
+                  (into {})
+                  vals)
+        efacts (when (seq ents)
+                 (store/-get-facts-for s (mapv :id ents) {:direction :both}))
+        hop-ids (when (seq efacts)
+                  (let [known (set (map :id ents))]
+                    (->> efacts
+                         (mapcat (juxt (comp :id :subject) (comp :id :object-ref)))
+                         (remove nil?)
+                         (remove known)
+                         distinct
+                         vec)))
+        hop-facts (when (seq hop-ids)
+                    (store/-get-facts-for s hop-ids {:direction :out}))
+        by-freshness (fn [fs] (->> fs
+                                   (sort-by (fn [f] [(- (logic/effective-confidence f t))
+                                                     (str (:id f))]))
+                                   vec))
+        ranked (logic/fuse-retrieval
+                [{:weight 1.0 :facts fts-facts}
+                 {:weight 1.2 :facts (by-freshness efacts)}
+                 {:weight 0.3 :facts (by-freshness hop-facts)}]
+                t)]
+    (assoc fts
+           :facts ranked
+           :matched-entities (mapv #(select-keys % [:id :name :type]) ents))))
 
 (defn conflicts
   "Open conflicts: flagged facts whose conflicting candidates are still

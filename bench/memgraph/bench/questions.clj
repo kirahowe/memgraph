@@ -329,6 +329,16 @@
     :run (fn [_] (:post-migration @probe-results))
     :expect {:deployed ["Fly.io"]}}
 
+   {:id :q33 :capability :retrieval
+    :desc "hybrid retrieval: an entity-name query answers from the graph route (plain FTS finds no literal), and an alias+token query surfaces the preference by consensus"
+    :run (fn [s]
+           {:entity-route (every? #(or (= "shoply.api" (get-in % [:subject :name]))
+                                       (= "shoply.api" (get-in % [:object-ref :name])))
+                                  (take 3 (:facts (core/search s "shoply.api" {}))))
+            :consensus (boolean (some #(= "argon2 for password hashing" (obj %))
+                                      (take 2 (:facts (core/search s "shoply.auth argon2" {})))))})
+    :expect {:entity-route true :consensus true}}
+
    {:id :q32 :capability :contamination
     :desc "React here is the in-house clojure queueing library — the answer must come from the graph, parametric knowledge notwithstanding"
     :run (fn [s]

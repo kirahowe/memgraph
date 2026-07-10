@@ -317,6 +317,56 @@
 ;; Read filters & traversal
 ;; ---------------------------------------------------------------------------
 
+;; ---------------------------------------------------------------------------
+;; Hybrid retrieval: rank fusion (pure)
+;; ---------------------------------------------------------------------------
+
+(defn query-tokens
+  "Query -> candidate entity-name tokens: whitespace-split, punctuation
+  trimmed at the edges so dotted/hyphenated names (shoply.api, kuzu-db)
+  survive whole."
+  [query]
+  (->> (str/split (str query) #"\s+")
+       (map #(str/replace % #"^[^\p{Alnum}]+|[^\p{Alnum}]+$" ""))
+       (remove str/blank?)
+       distinct
+       vec))
+
+(def ^:private rrf-k
+  "Reciprocal-rank-fusion damping: standard 60 keeps single-list winners
+  from drowning multi-list consensus."
+  60)
+
+(defn fuse-retrieval
+  "Pure hybrid ranking: ranked candidate lists (each [fact ...], best
+  first, from different retrieval routes) -> one ranked fact list. Score is
+  reciprocal-rank fusion across routes (weighted per route) times the
+  fact's effective confidence at :now — consensus and freshness both count,
+  and invalidated facts never surface.
+
+  routes: [{:weight w :facts [fact ...]} ...]"
+  [routes now]
+  (let [rrf (reduce (fn [acc {:keys [weight facts]}]
+                      (reduce (fn [a [rank f]]
+                                (update a (:id f)
+                                        (fnil (fn [[score fact]]
+                                                [(+ score (/ (or weight 1.0)
+                                                             (+ rrf-k rank 1)))
+                                                 fact])
+                                              [0.0 f])))
+                              acc
+                              (map-indexed vector facts)))
+                    {} routes)]
+    (->> (vals rrf)
+         (keep (fn [[score f]]
+                 (when (fact-valid-at? f now)
+                   (let [ec (effective-confidence f now)]
+                     (assoc f
+                            :effective-confidence ec
+                            :retrieval-score (* score ec))))))
+         (sort-by (comp - :retrieval-score))
+         vec)))
+
 (defn fact-filter
   "Predicate over facts for reads: validity at :at, plus optional
   confidence/scope/predicate filters. :min-confidence compares against

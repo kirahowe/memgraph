@@ -292,7 +292,7 @@ restates. Two layers, split by determinism:
 
 ```bash
 bb bench       # mechanics: recorded LLM outputs, real store and ingesters,
-               # 32 questions across retrieval / time-travel / history /
+               # 33 questions across retrieval / time-travel / history /
                # identity / conflicts / forgetting / provenance / ambient
                # (the notes loop: restatement reinforces, planted decisions
                # demote and flag, compaction ≠ falsity, echo guard holds) /

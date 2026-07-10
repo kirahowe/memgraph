@@ -198,7 +198,7 @@ Goal: the evidence says retrieval buys more points than write-path
 sophistication; ours is the thinnest layer. Ordered by increasing ambition
 (review §3.2). Issue 13's ablation numbers say how far down this list to go.
 
-### 18. Hybrid retrieval
+### 18. Hybrid retrieval ✅ *(2026-07-10 — FTS+entity+graph fusion; vectors still deferred)*
 Fuse FTS + entity/graph + vector scoring (Datalevin already has SIMD vector
 search — TODO's deferred item, now with evidence behind it). *(review §3.2;
 TODO)*
