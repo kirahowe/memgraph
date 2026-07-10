@@ -1,3 +1,4 @@
 # Live store (LMDB directory). The committable artifact is `memgraph dump` output.
 .memgraph/
 *.dump.jsonl
+bench/results/

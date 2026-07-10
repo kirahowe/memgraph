@@ -314,8 +314,20 @@
 ;; ---------------------------------------------------------------------------
 
 (defn -main [& args]
-  (if (= "llm" (first args))
+  (cond
+    (= "llm" (first args))
     (print-llm (run-llm {:judge-runs (or (some-> (second args) parse-long) 3)}))
+
+    ;; the headline four-arm A/B (informational, spends real agent calls):
+    ;;   bb bench ab                  all four arms, all tasks
+    ;;   bb bench ab none memgraph    a pilot on selected arms
+    (= "ab" (first args))
+    (let [arms (seq (map keyword (rest args)))
+          run-ab (requiring-resolve 'memgraph.bench.ab/run-ab)
+          print-ab (requiring-resolve 'memgraph.bench.ab/print-ab)]
+      (print-ab (run-ab {:arms arms})))
+
+    :else
     (let [{:keys [scorecard] :as report} (run-mechanics)]
       (print-mechanics report)
       (when-let [ms (cli-cold-start-ms)]
