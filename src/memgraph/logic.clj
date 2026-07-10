@@ -367,6 +367,30 @@
          (sort-by (comp - :retrieval-score))
          vec)))
 
+(defn walk-score
+  "Pure guidance for the evidence-guided walk: how much a fact looks like
+  the query (token overlap over its rendered text) times how alive it is
+  (effective confidence). +1 keeps zero-overlap edges walkable at low
+  priority — connectivity still counts, relevance counts more."
+  [f query-tokens now]
+  (let [text (str/lower-case
+              (str (get-in f [:subject :name]) " "
+                   (some-> (:predicate f) name) " "
+                   (or (get-in f [:object-ref :name]) (:object-lit f))))
+        overlap (count (filter #(str/includes? text %) query-tokens))]
+    (* (inc overlap) (effective-confidence f now))))
+
+(defn walk-step
+  "Pure: pick this round's expansions. candidates are unseen valid facts on
+  the frontier; returns the top-beam of them by walk-score (ties broken by
+  id, so the walk is deterministic across stores)."
+  [candidates query-tokens now beam]
+  (->> candidates
+       (map #(assoc % :walk-score (walk-score % query-tokens now)))
+       (sort-by (fn [f] [(- (:walk-score f)) (str (:id f))]))
+       (take beam)
+       vec))
+
 (defn fact-filter
   "Predicate over facts for reads: validity at :at, plus optional
   confidence/scope/predicate filters. :min-confidence compares against

@@ -411,6 +411,45 @@
         (let [facts (store/-get-facts-for s (:frontier state) {:direction :both})]
           (recur (logic/bfs-step state facts keep? (inc d)) (inc d)))))))
 
+(defn guided-walk
+  "The evidence-guided replacement for fixed-depth BFS (review §3.2,
+  TierMem/MRAgent): expand from an entity following the edges that look
+  like the query, not every edge to depth k. A beam of the best-scoring
+  unseen facts is taken each round (logic/walk-step — token overlap ×
+  effective confidence, deterministic ties), their far endpoints become the
+  next frontier, until the fact budget or the graph runs out.
+  opts: :entity :entity-scope :query :budget (default 25) :beam (default 8)"
+  [s {:keys [entity entity-scope query budget beam]}]
+  (let [root (require-entity s entity entity-scope)
+        t (now)
+        toks (mapv str/lower-case (logic/query-tokens query))
+        budget (long (or budget 25))
+        beam (long (or beam 8))]
+    (loop [frontier #{(:id root)}
+           visited #{(:id root)}
+           collected {}
+           depth 0]
+      (if (or (empty? frontier) (>= (count collected) budget) (>= depth 6))
+        {:root root
+         :query query
+         :facts (->> (vals collected)
+                     (sort-by (fn [f] [(- (:walk-score f)) (str (:id f))]))
+                     (take budget)
+                     vec)}
+        (let [candidates (->> (store/-get-facts-for s (vec frontier) {:direction :both})
+                              (filter #(logic/fact-valid-at? % t))
+                              (remove (comp collected :id)))
+              step (logic/walk-step candidates toks t beam)
+              far (->> step
+                       (mapcat (juxt (comp :id :subject) (comp :id :object-ref)))
+                       (remove nil?)
+                       (remove visited)
+                       set)]
+          (recur far
+                 (into visited far)
+                 (into collected (map (juxt :id identity)) step)
+                 (inc depth)))))))
+
 (defn get-history
   "All versions of (subject, predicate), valid and invalidated, time-ordered.
   The single best demonstration of why this beats markdown."
@@ -479,6 +518,53 @@
     (assoc fts
            :facts ranked
            :matched-entities (mapv #(select-keys % [:id :name :type]) ents))))
+
+(defn recall
+  "Sufficiency escalation (review §3.2, TierMem): answer from the cheapest
+  tier that can support the query — graph facts first, episode summaries
+  when the graph has nothing, raw evidence pages when even the summaries
+  are silent. The sufficiency rule is deterministic and dumb on purpose (a
+  tier is sufficient when it returned anything at or above :min-hits); the
+  caller sees which tier answered and everything that tier found.
+  opts: :min-hits (default 1) :evidence-dir (enables the raw tier)"
+  [s query {:keys [min-hits evidence-dir]}]
+  (let [min-hits (long (or min-hits 1))
+        sr (search s query {})
+        facts (:facts sr)
+        episodes (when (< (count facts) min-hits)
+                   (->> (logic/query-tokens query)
+                        (mapcat #(:episodes (store/-search s % {})))
+                        (concat (:episodes sr))
+                        (reduce (fn [[seen out] ep]
+                                  (if (seen (:id ep))
+                                    [seen out]
+                                    [(conj seen (:id ep)) (conj out ep)]))
+                                [#{} []])
+                        second))
+        evidence (when (and (< (count facts) min-hits)
+                            (< (count episodes) min-hits)
+                            evidence-dir)
+                   (let [fetch (requiring-resolve 'memgraph.evidence/fetch)
+                         toks (mapv str/lower-case (logic/query-tokens query))]
+                     (vec (for [ep (filter :evidence (store/-list-episodes s))
+                                :let [content (fetch evidence-dir (:evidence ep))
+                                      hits (when content
+                                             (filterv (fn [line]
+                                                        (let [l (str/lower-case line)]
+                                                          (some #(str/includes? l %) toks)))
+                                                      (str/split-lines content)))]
+                                :when (seq hits)]
+                            {:episode (:id ep)
+                             :ref (:ref ep)
+                             :lines (vec (take 5 hits))}))))]
+    {:tier (cond
+             (>= (count facts) min-hits) :facts
+             (seq episodes) :episodes
+             (seq evidence) :evidence
+             :else :nothing)
+     :facts facts
+     :episodes (vec (or episodes []))
+     :evidence (vec (or evidence []))}))
 
 (defn conflicts
   "Open conflicts: flagged facts whose conflicting candidates are still

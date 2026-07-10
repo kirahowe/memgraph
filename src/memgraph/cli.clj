@@ -70,9 +70,23 @@
 (defn cmd-neighbor [{:keys [opts]}]
   (with-store opts
     (fn [s]
-      (emit opts (core/get-neighborhood s (assoc (select-keys opts [:entity :entity-scope :depth
-                                                                    :scope :min-confidence :predicate])
-                                                 :as-of (parse-time (:as-of opts))))))))
+      (emit opts
+            (if (:query opts)
+              (core/guided-walk s (select-keys opts [:entity :entity-scope
+                                                     :query :budget :beam]))
+              (core/get-neighborhood s (assoc (select-keys opts [:entity :entity-scope :depth
+                                                                 :scope :min-confidence :predicate])
+                                              :as-of (parse-time (:as-of opts)))))))))
+
+(defn cmd-recall [{:keys [opts args]}]
+  (let [query (or (first args) (:query opts))]
+    (when (str/blank? (str query))
+      (logic/fail "recall requires a query" {:type :missing-query}))
+    (with-store opts
+      (fn [s]
+        (emit opts (core/recall s (str query)
+                                {:min-hits (:min-hits opts)
+                                 :evidence-dir (evidence-dir opts)}))))))
 
 (defn cmd-history [{:keys [opts]}]
   (with-store opts
@@ -316,6 +330,15 @@ Commands:
                         decision-records never fade). --min-confidence
                         filters on the effective value.
   neighbor            BFS neighborhood: --entity E [--depth 2] [--as-of ISO] [--min-confidence 0.5]
+                        With --query \"...\" the fixed-depth BFS becomes an
+                        evidence-guided walk: each round expands only the
+                        [--beam 8] best edges by query-overlap × effective
+                        confidence, until [--budget 25] facts.
+  recall              Sufficiency escalation: memgraph recall \"query\"
+                        [--min-hits 1]. Answers from the cheapest tier that
+                        can support the query — graph facts (hybrid search),
+                        then episode summaries, then raw evidence pages;
+                        the result says which tier answered.
   history             All versions of (subject, predicate): --subject S --predicate P
   search              Full-text search: memgraph search \"redis migration\"
   invalidate          Close a fact's validity interval: --fact-id F [--reason R]
@@ -455,7 +478,10 @@ Commands:
    {:cmds ["facts"] :fn cmd-facts :spec {:min-confidence {:coerce :double}
                                          :include-invalidated {:coerce :boolean}}}
    {:cmds ["neighbor"] :fn cmd-neighbor :spec {:depth {:coerce :long}
+                                               :budget {:coerce :long}
+                                               :beam {:coerce :long}
                                                :min-confidence {:coerce :double}}}
+   {:cmds ["recall"] :fn cmd-recall :spec {:min-hits {:coerce :long}}}
    {:cmds ["history"] :fn cmd-history}
    {:cmds ["search"] :fn cmd-search}
    {:cmds ["invalidate"] :fn cmd-invalidate}

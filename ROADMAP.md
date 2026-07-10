@@ -207,7 +207,7 @@ TODO)*
 Consolidation emits search phrases / alt-labels so FTS behaves closer to
 semantic search without embeddings. SIRA-style, training-free. *(review §3.2)*
 
-### 20. Sufficiency escalation and evidence-guided walks
+### 20. Sufficiency escalation and evidence-guided walks ✅ *(2026-07-10)*
 Escalate graph facts → episode summaries → raw pages when the graph can't
 support an answer (needs issue 14), and replace fixed-depth BFS with an
 evidence-guided walk over the same graph. *(review §3.2, TierMem/MRAgent)*
