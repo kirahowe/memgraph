@@ -18,8 +18,11 @@
             [memgraph.bench.fixture :as fixture]
             [memgraph.bench.questions :as questions]
             [memgraph.consolidate :as consolidate]
+            [memgraph.context :as context]
             [memgraph.core :as core]
+            [memgraph.harness :as harness]
             [memgraph.ingest.clj-code :as code]
+            [memgraph.ingest.notes :as notes]
             [memgraph.ingest.session :as session]
             [memgraph.judge :as judge]
             [memgraph.logic :as logic]
@@ -32,15 +35,39 @@
 (defn- transcript [resource]
   (slurp (io/resource resource)))
 
-(defn- run-step! [s dir {:keys [op] :as step}]
+(defn- write-note!
+  "The harness rewriting a note file: fresh content replaces the old, but an
+  existing managed section stays where it is — compaction squeezes Claude's
+  own notes, not memgraph's compiled block."
+  [f content]
+  (let [old (when (fs/exists? f) (slurp f))
+        begin (some-> old (str/index-of harness/begin-marker))
+        end (when begin
+              (some-> (str/index-of old harness/end-marker begin)
+                      (+ (count harness/end-marker))))]
+    (spit f (if end
+              (str (subs old begin end) "\n\n" content)
+              content))))
+
+(defn- run-step! [s {:keys [code-dir notes-dir]} {:keys [op] :as step}]
   (case op
     :code
-    (do (fs/delete-tree dir)
+    (do (when (fs/exists? code-dir) (fs/delete-tree code-dir))
         (doseq [[path content] (:files step)]
-          (let [f (fs/file (str dir) path)]
+          (let [f (fs/file (str code-dir) path)]
             (io/make-parents f)
             (spit f content)))
-        (code/ingest! s {:dir (str dir)}))
+        (code/ingest! s {:dir (str code-dir)}))
+
+    :notes
+    (do (fs/create-dirs notes-dir)
+        (doseq [[path content] (:files step)]
+          (write-note! (fs/file (str notes-dir) path) content))
+        (notes/ingest! s {:dir (str notes-dir)
+                          :extractor-fn fixture/recorded-note-extractor}))
+
+    :compile-context
+    (context/compile! s {:dir (str notes-dir)})
 
     :assert
     (let [a (:args step)]
@@ -85,11 +112,13 @@
 (defn run-timeline!
   "Execute the fixture timeline against a seeded store."
   [s]
-  (let [dir (fs/create-temp-dir {:prefix "memgraph-bench"})]
+  (let [root (fs/create-temp-dir {:prefix "memgraph-bench"})
+        dirs {:code-dir (fs/path root "code")
+              :notes-dir (fs/path root "notes")}]
     (try
       (doseq [step fixture/steps]
-        (run-step! s dir step))
-      (finally (fs/delete-tree dir))))
+        (run-step! s dirs step))
+      (finally (fs/delete-tree root))))
   s)
 
 ;; ---------------------------------------------------------------------------

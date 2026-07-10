@@ -3,7 +3,9 @@
   after living through the fixture timeline. Each question runs a real read
   against the store and compares to hand-authored ground truth. Categories
   deliberately map onto the system's load-bearing capabilities."
-  (:require [memgraph.core :as core]
+  (:require [clojure.string :as str]
+            [memgraph.context :as context]
+            [memgraph.core :as core]
             [memgraph.logic :as logic]
             [memgraph.store :as store]))
 
@@ -72,9 +74,9 @@
     :expect {:resolves-to "shoply.identity" :carried true}}
 
    {:id :q9 :capability :conflicts
-    :desc "two conflicts stand open for the human"
+    :desc "three conflicts stand open for the human (two session-era, one planted by notes)"
     :run (fn [s] (:open (core/conflicts s)))
-    :expect 2}
+    :expect 3}
 
    {:id :q10 :capability :conflicts
     :desc "they are the GraphQL stance clash and the KuzuDB decision violation"
@@ -124,4 +126,48 @@
            (let [{:keys [history]} (core/get-history s {:subject "shoply"
                                                         :predicate :core/deployed-via})]
              (:invalidation-reason (first (filter #(= "Heroku" (:object-lit %)) history)))))
-    :expect "migrated to Fly.io"}])
+    :expect "migrated to Fly.io"}
+
+   {:id :q16 :capability :ambient
+    :desc "a note restating a session fact reinforces it — one copy, session provenance intact"
+    :run (fn [s]
+           (let [fs (filter #(= "write-through cache strategy" (obj %))
+                            (:facts (core/get-facts s {:entity "shoply.cache"
+                                                       :predicate :core/prefers})))
+                 f (first fs)]
+             {:copies (count fs)
+              :episode-ref (:ref (store/-get-episode s (:episode f)))}))
+    :expect {:copies 1 :episode-ref "session-3"}}
+
+   {:id :q17 :capability :ambient
+    :desc "a decision planted in notes lands demoted — observation, capped, agent-note — and flags against the standing rejection"
+    :run (fn [s]
+           (let [f (first (filter #(= "KuzuDB" (obj %))
+                                  (:facts (core/get-facts s {:entity "shoply"
+                                                             :predicate :core/prefers}))))]
+             {:epistemic (:epistemic f)
+              :confidence (:confidence f)
+              :source (:source-type f)
+              :flagged (boolean (seq (:conflicts f)))}))
+    :expect {:epistemic :observation :confidence 0.65 :source :agent-note :flagged true}}
+
+   {:id :q18 :capability :ambient
+    :desc "compaction is not falsity: the dropped Fly.io note stays a valid fact; ingestion stayed delta-driven"
+    :run (fn [s]
+           {:fly-still-valid (object-seq s {:entity "shoply" :predicate :core/deployed-via})
+            :note-episodes (count (filter #(= :agent-note (:source-type %))
+                                          (store/-list-episodes s)))})
+    :expect {:fly-still-valid ["Fly.io"]
+             :note-episodes 3}}
+
+   {:id :q19 :capability :ambient
+    :desc "the compiled view carries decisions and conflicts, never code facts, inside budget"
+    :run (fn [s]
+           (let [v (context/compiled-view {:facts (store/-all-facts s)
+                                           :conflicts (:conflicts (core/conflicts s))
+                                           :now (core/now)})]
+             {:standing (boolean (re-find #"decided-against \"GraphQL\"" v))
+              :conflict-listed (str/includes? v "KuzuDB")
+              :code-free (not (str/includes? v "defined-in"))
+              :budgeted (<= (count (.getBytes v "UTF-8")) context/default-budget)}))
+    :expect {:standing true :conflict-listed true :code-free true :budgeted true}}])

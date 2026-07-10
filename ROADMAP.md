@@ -81,7 +81,7 @@ experiment. Plan and rationale: review §4.3; items below keep its numbering
 where relevant. The fixture tiers are cheap, extend the existing `bb bench`
 harness, and build toward the A/B.
 
-### 5. Notes-loop bench fixture
+### 5. Notes-loop bench fixture ✅ *(2026-07-10)*
 A fixture auto-memory directory in `bench/`: notes that restate facts,
 contradict a standing commitment, and get compacted away — regression-gating
 the compaction/decay semantics and the echo guard from Phase 1.

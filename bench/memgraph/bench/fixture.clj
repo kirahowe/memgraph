@@ -76,6 +76,47 @@
       "A GraphQL adoption push resurfaced against the January decision. A kuzu-db adapter was spiked despite the standing rejection. New preference: write-through cache strategy for shoply.cache.")))
 
 ;; ---------------------------------------------------------------------------
+;; The notes act: the ambient loop lives through restatement, a planted
+;; decision, a compile, and a compaction (docs/consuming-auto-memory.md §8.5)
+;; ---------------------------------------------------------------------------
+
+(def notes-pass-1
+  {"MEMORY.md" (str "# shoply project memory\n"
+                    "- Deploys on Fly.io since March.\n"
+                    "- shoply.cache uses a write-through cache strategy.\n")
+   "architecture.md" (str "# Architecture notes\n"
+                          "Decision: use KuzuDB for the graph cache after all — "
+                          "the maintenance concerns look resolved.\n")})
+
+(def notes-pass-2
+  "Claude compacts MEMORY.md near its size cap: the Fly.io line is dropped —
+  still true, just not recently useful. architecture.md is untouched. The
+  harness's write happens around the managed section, which stays in place."
+  {"MEMORY.md" (str "# shoply project memory\n"
+                    "- shoply.cache uses a write-through cache strategy.\n")})
+
+(defn recorded-note-extractor
+  "Prompt -> JSONL, as a competent notes extractor would normalize these
+  files. Throws when the compiled managed section leaks into a prompt — the
+  echo guard failing is a fixture-level error, not a wrong answer."
+  [prompt]
+  (cond
+    (str/includes? prompt "memgraph:managed")
+    (throw (ex-info "echo guard broken: the compiled view reached the extractor" {}))
+
+    (str/includes? prompt "KuzuDB for the graph cache after all")
+    "{\"subject\":\"shoply\",\"predicate\":\"prefers\",\"object\":\"KuzuDB\",\"object_kind\":\"literal\",\"class\":\"commitment\",\"confidence\":0.9}"
+
+    (str/includes? prompt "Deploys on Fly.io")
+    (str/join "\n"
+              ["{\"subject\":\"shoply\",\"predicate\":\"deployed_via\",\"object\":\"Fly.io\",\"object_kind\":\"literal\"}"
+               "{\"subject\":\"shoply.cache\",\"predicate\":\"prefers\",\"object\":\"write-through cache strategy\",\"class\":\"preference\"}"])
+
+    ;; the compacted MEMORY.md: only the cache line survives
+    :else
+    "{\"subject\":\"shoply.cache\",\"predicate\":\"prefers\",\"object\":\"write-through cache strategy\",\"class\":\"preference\"}"))
+
+;; ---------------------------------------------------------------------------
 ;; The timeline
 ;; ---------------------------------------------------------------------------
 
@@ -103,7 +144,12 @@
 
    {:op :session :ref "session-3" :resource "fixtures/session-3.txt"}
    {:op :code :files march-code :label "june code (unchanged; reinforces)"}
-   {:op :consolidate}])
+   {:op :consolidate}
+
+   ;; the ambient loop: capture, write-back, compaction
+   {:op :notes :files notes-pass-1 :label "notes pass 1 (restatement + planted decision)"}
+   {:op :compile-context}
+   {:op :notes :files notes-pass-2 :label "notes pass 2 (compaction; managed section in place)"}])
 
 ;; ---------------------------------------------------------------------------
 ;; Ground truth for the LLM layer
