@@ -5,3 +5,5 @@ marco: fine. but write it down that I objected, future me wants the receipt.
 kira: logged. also I merged the auth work last night. went with argon2 for password hashing, the bcrypt benchmarks on the new boxes were embarrassing.
 marco: works for me. deploys are still heroku?
 kira: yeah, heroku since the fifth. it's fine for now, ask me again when the invoice shows up.
+marco: one more for the log. checkout writes go straight from shoply.api into shoply.db right now — the api namespace depends on the db namespace directly. fine for launch, revisit later.
+kira: noted, it's on the list.

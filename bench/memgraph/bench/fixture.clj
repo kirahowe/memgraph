@@ -26,6 +26,13 @@
    "src/shoply/cache.clj"    "(ns shoply.cache)"
    "src/shoply/db.clj"       "(ns shoply.db)"})
 
+;; June: mostly a reinforcing no-op pass — except shoply.cache quietly grows
+;; a direct db require, violating the April storage-agnosticism decision
+;; without anyone saying so (the implicit-conflict case; STALE's axis).
+(def june-code
+  (assoc march-code
+         "src/shoply/cache.clj" "(ns shoply.cache (:require [shoply.db]))"))
+
 ;; ---------------------------------------------------------------------------
 ;; Recorded LLM outputs (mechanics layer)
 ;; ---------------------------------------------------------------------------
@@ -36,7 +43,8 @@
              ["{\"subject\":\"shoply\",\"predicate\":\"decided_against\",\"object\":\"GraphQL\",\"object_kind\":\"literal\",\"class\":\"commitment\",\"confidence\":0.9}"
               "{\"subject\":\"shoply.api\",\"predicate\":\"prefers\",\"object\":\"REST with EDN bodies\",\"class\":\"preference\"}"
               "{\"subject\":\"shoply.auth\",\"predicate\":\"prefers\",\"object\":\"argon2 for password hashing\",\"class\":\"preference\"}"
-              "{\"subject\":\"shoply\",\"predicate\":\"deployed_via\",\"object\":\"Heroku\",\"object_kind\":\"literal\",\"valid_from\":\"2026-01-05\"}"])
+              "{\"subject\":\"shoply\",\"predicate\":\"deployed_via\",\"object\":\"Heroku\",\"object_kind\":\"literal\",\"valid_from\":\"2026-01-05\"}"
+              "{\"subject\":\"shoply.api\",\"predicate\":\"depends_on\",\"object\":\"shoply.db\",\"object_kind\":\"entity\"}"])
    "session-2"
    (str/join "\n"
              ["{\"subject\":\"shoply\",\"predicate\":\"deployed_via\",\"object\":\"Fly.io\",\"object_kind\":\"literal\",\"valid_from\":\"2026-03-10\"}"
@@ -59,6 +67,9 @@
 
       (str/includes? p "write-through")
       "{\"relation\":\"compatible\",\"confidence\":0.85,\"rationale\":\"A strategy preference and a stale observation can coexist.\"}"
+
+      (str/includes? p "shoply.db")
+      "{\"relation\":\"contradicts\",\"confidence\":0.9,\"rationale\":\"The code depends directly on the namespace an April decision ruled out.\"}"
 
       :else
       "{\"relation\":\"contradicts\",\"confidence\":0.9,\"rationale\":\"Opposed stances toward the same object.\"}")))
@@ -135,6 +146,13 @@
    {:op :invalidate-object :entity "shoply" :predicate :core/deployed-via
     :object-lit "Heroku" :at "2026-03-10" :reason "migrated to Fly.io"}
 
+   ;; April: storage-agnosticism decision — the cache layer must never touch
+   ;; the db namespace directly. June's code quietly violates it.
+   {:op :assert :args {:subject "shoply.cache" :predicate :core/decided-against
+                       :object "shoply.db" :object-kind :entity
+                       :source-type :decision-record
+                       :valid-from "2026-04-15"}}
+
    ;; a session-era observation nobody ever restated, aged two half-lives
    {:op :raw-fact :days-ago 180
     :fact {:subject-name "shoply.cache" :predicate :core/prefers
@@ -143,7 +161,8 @@
            :scope "project"}}
 
    {:op :session :ref "session-3" :resource "fixtures/session-3.txt"}
-   {:op :code :files march-code :label "june code (unchanged; reinforces)"}
+   {:op :code :files june-code
+    :label "june code (reinforcing no-op, except cache quietly requires db)"}
    {:op :consolidate}
 
    ;; the ambient loop: capture, write-back, compaction
@@ -162,7 +181,8 @@
   {"session-1" #{["shoply" "decided-against" "graphql"]
                  ["shoplyapi" "prefers" "restwithednbodies"]
                  ["shoplyauth" "prefers" "argon2forpasswordhashing"]
-                 ["shoply" "deployed-via" "heroku"]}
+                 ["shoply" "deployed-via" "heroku"]
+                 ["shoplyapi" "depends-on" "shoplydb"]}
    "session-2" #{["shoply" "deployed-via" "flyio"]
                  ["shoply" "decided-against" "kuzudb"]}
    "session-3" #{["shoply" "prefers" "graphql"]

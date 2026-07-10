@@ -29,7 +29,7 @@
                            (:facts (core/get-facts s {:entity "shoply.db"
                                                       :predicate :core/depends-on
                                                       :direction :in})))))
-    :expect #{"shoply.identity"}}
+    :expect #{"shoply.identity" "shoply.cache"}}
 
    {:id :q3 :capability :time-travel
     :desc "version in February"
@@ -74,17 +74,17 @@
     :expect {:resolves-to "shoply.identity" :carried true}}
 
    {:id :q9 :capability :conflicts
-    :desc "three conflicts stand open for the human (two session-era, one planted by notes)"
+    :desc "four conflicts stand open for the human (two session-era, one code-vs-decision, one planted by notes)"
     :run (fn [s] (:open (core/conflicts s)))
-    :expect 3}
+    :expect 4}
 
    {:id :q10 :capability :conflicts
-    :desc "they are the GraphQL stance clash and the KuzuDB decision violation"
+    :desc "they are the GraphQL stance clash and the KuzuDB and shoply.db decision violations"
     :run (fn [s] (set (map (fn [{:keys [fact candidate]}]
                              (set (map (comp logic/normalize-entity-name obj)
                                        [fact candidate])))
                            (:conflicts (core/conflicts s)))))
-    :expect #{#{"graphql"} #{"kuzudb"}}}
+    :expect #{#{"graphql"} #{"kuzudb"} #{"shoplydb"}}}
 
    {:id :q11 :capability :forgetting
     :desc "the unrestated observation faded; the re-derived code fact stayed hot"
@@ -170,4 +170,35 @@
               :conflict-listed (str/includes? v "KuzuDB")
               :code-free (not (str/includes? v "defined-in"))
               :budgeted (<= (count (.getBytes v "UTF-8")) context/default-budget)}))
-    :expect {:standing true :conflict-listed true :code-free true :budgeted true}}])
+    :expect {:standing true :conflict-listed true :code-free true :budgeted true}}
+
+   {:id :q20 :capability :staleness
+    :desc "the dependency the code quietly dropped: a session restated it, reconciliation still closed it"
+    :run (fn [s]
+           (let [{:keys [history]} (core/get-history s {:subject "shoply.api"
+                                                        :predicate :core/depends-on})
+                 db (first (filter #(= "shoply.db" (get-in % [:object-ref :name]))
+                                   history))]
+             {:current (objects s {:entity "shoply.api" :predicate :core/depends-on})
+              :closed (some? (:t-invalid db))
+              :reason-mechanical (str/starts-with? (str (:invalidation-reason db))
+                                                   "code-invalidation")}))
+    :expect {:current #{"shoply.identity" "shoply.cache"}
+             :closed true
+             :reason-mechanical true}}
+
+   {:id :q21 :capability :staleness
+    :desc "the code quietly violated the April decision; the sweep surfaced it, nobody having said a word"
+    :run (fn [s]
+           (let [pair (first (filter (fn [{:keys [fact candidate]}]
+                                       (= #{:code :decision-record}
+                                          (set (map :source-type [fact candidate]))))
+                                     (:conflicts (core/conflicts s))))]
+             {:found (some? pair)
+              :subjects (set (map (comp :name :subject)
+                                  ((juxt :fact :candidate) pair)))
+              :objects (set (map (comp logic/normalize-entity-name obj)
+                                 ((juxt :fact :candidate) pair)))}))
+    :expect {:found true
+             :subjects #{"shoply.cache"}
+             :objects #{"shoplydb"}}}])

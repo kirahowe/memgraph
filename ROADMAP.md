@@ -87,7 +87,7 @@ contradict a standing commitment, and get compacted away — regression-gating
 the compaction/decay semantics and the echo guard from Phase 1.
 *(consuming-auto-memory §8.5)*
 
-### 6. Staleness / implicit-conflict tier
+### 6. Staleness / implicit-conflict tier ✅ *(2026-07-10)*
 Cases where the code contradicts a session-derived fact without anyone saying
 so; score whether reads surface current truth, the sweep finds the conflict,
 and decay buries the stale fact. The field measures ~55% on this axis; our
