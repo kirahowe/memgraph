@@ -21,6 +21,10 @@
 (defn- emit [opts data]
   (println (json/generate-string data {:pretty (boolean (:pretty opts))})))
 
+(defn- evidence-dir [opts]
+  (or (:evidence-dir opts)
+      ((requiring-resolve 'memgraph.evidence/default-dir) (db-path opts))))
+
 (defn- parse-time [s] (logic/parse-instant s))
 
 (defn- open-store [opts]
@@ -194,10 +198,6 @@
     (with-store opts
       (fn [s] (emit opts (ingest-code s (select-keys opts [:dir :scope])))))))
 
-(defn- evidence-dir [opts]
-  (or (:evidence-dir opts)
-      ((requiring-resolve 'memgraph.evidence/default-dir) (db-path opts))))
-
 (defn cmd-session-extract [{:keys [opts]}]
   (let [extract (requiring-resolve 'memgraph.ingest.session/extract!)]
     (with-store opts
@@ -253,6 +253,25 @@
         (emit opts (compile-context s (select-keys opts [:harness :dir :project
                                                          :budget :dry-run])))))))
 
+(defn cmd-coach [{:keys [opts args]}]
+  (let [consult (requiring-resolve 'memgraph.coach/consult)]
+    (if (:hook opts)
+      ;; hook mode: harness JSON on stdin; print injection JSON or nothing
+      (let [input (try (json/parse-string (slurp *in*) true) (catch Exception _ {}))
+            query ((requiring-resolve 'memgraph.coach/hook-input->query) input)]
+        (when-not (str/blank? (str query))
+          (with-store opts
+            (fn [s]
+              (when-let [out ((requiring-resolve 'memgraph.coach/hook-output)
+                              (consult s (str query)))]
+                (emit opts out))))))
+      (let [query (or (first args) (:query opts))]
+        (when (str/blank? (str query))
+          (logic/fail "coach requires a query (or --hook with stdin)"
+                      {:type :missing-query}))
+        (with-store opts
+          (fn [s] (emit opts (consult s (str query)))))))))
+
 (defn cmd-hooks-run [{:keys [opts]}]
   (let [run (requiring-resolve 'memgraph.hooks/run!)]
     (with-store opts
@@ -265,7 +284,8 @@
 
 (defn cmd-hooks-install [{:keys [opts]}]
   (let [install (requiring-resolve 'memgraph.hooks/install!)]
-    (emit opts (install (select-keys opts [:project :harness :consolidate-days :bin])))))
+    (emit opts (install (select-keys opts [:project :harness :consolidate-days
+                                           :coach :bin])))))
 
 (defn cmd-dump [{:keys [opts]}]
   (with-store opts
@@ -334,6 +354,13 @@ Commands:
                         evidence-guided walk: each round expands only the
                         [--beam 8] best edges by query-overlap × effective
                         confidence, until [--budget 25] facts.
+  coach               Gated push: memgraph coach \"task text\" — decides
+                        WHETHER the graph holds something worth interrupting
+                        with (standing decisions, known failure modes, open
+                        conflicts touching the task); silent otherwise.
+                        --hook reads Claude Code hook JSON on stdin and
+                        emits additionalContext only when the gate fires
+                        (wired by hooks install --coach).
   recall              Sufficiency escalation: memgraph recall \"query\"
                         [--min-hits 1]. Answers from the cheapest tier that
                         can support the query — graph facts (hybrid search),
@@ -441,7 +468,9 @@ Commands:
                         session ends with `hooks run`. Idempotent; foreign
                         hooks and other settings are preserved.
                         [--project DIR] [--harness claude-code]
-                        [--consolidate-days 7] [--bin memgraph]
+                        [--consolidate-days 7] [--coach] [--bin memgraph]
+                        --coach also wires a UserPromptSubmit hook running
+                        the gated push (see coach).
   hooks run           The SessionEnd pass: ingest-notes, compile-context,
                         and consolidate when due (stamp-gated, default every
                         7 days; 0 = always). Stages report independently —
@@ -482,6 +511,7 @@ Commands:
                                                :beam {:coerce :long}
                                                :min-confidence {:coerce :double}}}
    {:cmds ["recall"] :fn cmd-recall :spec {:min-hits {:coerce :long}}}
+   {:cmds ["coach"] :fn cmd-coach :spec {:hook {:coerce :boolean}}}
    {:cmds ["history"] :fn cmd-history}
    {:cmds ["search"] :fn cmd-search}
    {:cmds ["invalidate"] :fn cmd-invalidate}
@@ -515,7 +545,7 @@ Commands:
     :spec {:consolidate-days {:coerce :long} :resolve {:coerce :boolean}
            :min-confidence {:coerce :double}}}
    {:cmds ["hooks" "install"] :fn cmd-hooks-install
-    :spec {:consolidate-days {:coerce :long}}}
+    :spec {:consolidate-days {:coerce :long} :coach {:coerce :boolean}}}
    {:cmds ["dump"] :fn cmd-dump}
    {:cmds ["load"] :fn cmd-load}
    {:cmds ["stats"] :fn cmd-stats}

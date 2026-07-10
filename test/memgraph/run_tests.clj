@@ -2,6 +2,7 @@
   (:require [clojure.test :as t]
             [memgraph.adr-test]
             [memgraph.bench-test]
+            [memgraph.coach-test]
             [memgraph.code-ingest-test]
             [memgraph.consolidate-test]
             [memgraph.context-test]
@@ -27,6 +28,7 @@
                                           'memgraph.session-test
                                           'memgraph.notes-test
                                           'memgraph.retrieval-test
+                                          'memgraph.coach-test
                                           'memgraph.context-test
                                           'memgraph.hooks-test
                                           'memgraph.judge-test

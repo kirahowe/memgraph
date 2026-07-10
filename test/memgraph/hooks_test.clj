@@ -15,12 +15,18 @@
 ;; Pure: the settings merge
 ;; ---------------------------------------------------------------------------
 
+(defn- entry [cmd] {:hooks [{:type "command" :command cmd}]})
+
 (deftest install-plan-is-idempotent-and-preserves-neighbors
-  (let [foreign {:hooks [{:type "command" :command "echo bye"}]}
+  (let [foreign (entry "echo bye")
         base {:permissions {:allow ["Bash(bb test)"]}
               :hooks {:SessionEnd [foreign]}}
-        v1 (hooks/install-plan base "memgraph hooks run --harness claude-code")
-        v2 (hooks/install-plan v1 "memgraph hooks run --harness claude-code --consolidate-days 3")]
+        v1 (hooks/install-plan base :SessionEnd
+                               (entry "memgraph hooks run --harness claude-code")
+                               "hooks run")
+        v2 (hooks/install-plan v1 :SessionEnd
+                               (entry "memgraph hooks run --harness claude-code --consolidate-days 3")
+                               "hooks run")]
     (testing "appends alongside foreign hooks, preserving everything else"
       (is (= 2 (count (get-in v1 [:hooks :SessionEnd]))))
       (is (= foreign (first (get-in v1 [:hooks :SessionEnd]))))
@@ -28,7 +34,12 @@
     (testing "re-install replaces our entry in place, never duplicates"
       (is (= 2 (count (get-in v2 [:hooks :SessionEnd]))))
       (is (= "memgraph hooks run --harness claude-code --consolidate-days 3"
-             (-> v2 (get-in [:hooks :SessionEnd]) second :hooks first :command))))))
+             (-> v2 (get-in [:hooks :SessionEnd]) second :hooks first :command))))
+    (testing "events are independent"
+      (let [v3 (hooks/install-plan v2 :UserPromptSubmit
+                                   (entry "memgraph coach --hook") "coach --hook")]
+        (is (= 1 (count (get-in v3 [:hooks :UserPromptSubmit]))))
+        (is (= 2 (count (get-in v3 [:hooks :SessionEnd]))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Shell: install! against a temp project

@@ -321,14 +321,23 @@
 ;; Hybrid retrieval: rank fusion (pure)
 ;; ---------------------------------------------------------------------------
 
+(def ^:private query-stopwords
+  #{"the" "and" "for" "with" "into" "from" "that" "this" "does" "are" "was"
+    "our" "not" "use" "uses" "using" "what" "which" "when" "where" "why"
+    "how" "did" "should" "against" "about" "run" "add" "get" "all" "any"})
+
 (defn query-tokens
-  "Query -> candidate entity-name tokens: whitespace-split, punctuation
+  "Query -> candidate retrieval tokens: whitespace-split, punctuation
   trimmed at the edges so dotted/hyphenated names (shoply.api, kuzu-db)
-  survive whole."
+  survive whole; stopwords and sub-3-char fragments dropped — substring
+  backends would match them everywhere and drown the signal. Short queries
+  still work: callers always search the full query string as well."
   [query]
   (->> (str/split (str query) #"\s+")
        (map #(str/replace % #"^[^\p{Alnum}]+|[^\p{Alnum}]+$" ""))
        (remove str/blank?)
+       (remove #(< (count %) 3))
+       (remove (comp query-stopwords str/lower-case))
        distinct
        vec))
 

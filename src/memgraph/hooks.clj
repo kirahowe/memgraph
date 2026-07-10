@@ -81,28 +81,29 @@
 ;; hooks install
 ;; ---------------------------------------------------------------------------
 
-(defn- memgraph-hook? [h]
-  (str/includes? (str (:command h)) "hooks run"))
-
 (defn install-plan
-  "Pure: existing settings map + the hook command -> new settings map.
-  Replaces the memgraph SessionEnd entry in place when present (idempotent),
-  appends alongside foreign hooks otherwise, touches nothing else."
-  [settings cmd]
-  (let [entry {:hooks [{:type "command" :command cmd :timeout hook-timeout-seconds}]}
-        existing (vec (get-in settings [:hooks :SessionEnd]))
-        ours? (fn [e] (some memgraph-hook? (:hooks e)))]
-    (assoc-in settings [:hooks :SessionEnd]
+  "Pure: merge one memgraph hook entry into settings under an event key.
+  `marker` identifies our entry among foreign hooks (idempotent: replaced
+  in place when present, appended otherwise); everything else in the file
+  is untouched."
+  [settings event entry marker]
+  (let [existing (vec (get-in settings [:hooks event]))
+        ours? (fn [e] (some #(str/includes? (str (:command %)) marker)
+                            (:hooks e)))]
+    (assoc-in settings [:hooks event]
               (if (some ours? existing)
                 (mapv #(if (ours? %) entry %) existing)
                 (conj existing entry)))))
 
 (defn install!
-  "Wire the SessionEnd hook into <project>/.claude/settings.json.
+  "Wire the ambient loop into <project>/.claude/settings.json: a SessionEnd
+  entry always, and with :coach also a UserPromptSubmit entry that runs the
+  gated push (memgraph coach --hook) — a briefing lands only when standing
+  decisions, failure modes, or open conflicts touch the task.
   opts: :project (default cwd) :harness (default claude-code)
-        :consolidate-days :bin (the memgraph executable for the hook command;
-        auto-detects a repo-local bin/memgraph, else assumes PATH)"
-  [{:keys [project harness consolidate-days bin]}]
+        :consolidate-days :coach :bin (the memgraph executable for the hook
+        command; auto-detects a repo-local bin/memgraph, else assumes PATH)"
+  [{:keys [project harness consolidate-days coach bin]}]
   (let [project (str (fs/canonicalize (or project ".")))
         settings-file (str (fs/path project ".claude" "settings.json"))
         settings (if (fs/exists? settings-file)
@@ -111,14 +112,23 @@
         bin (or bin
                 (if (fs/exists? (fs/path project "bin" "memgraph"))
                   "bin/memgraph" "memgraph"))
-        cmd (str bin " hooks run --harness " (name (or harness :claude-code))
-                 (when consolidate-days (str " --consolidate-days " consolidate-days)))
-        updated (install-plan settings cmd)
+        run-cmd (str bin " hooks run --harness " (name (or harness :claude-code))
+                     (when consolidate-days (str " --consolidate-days " consolidate-days)))
+        coach-cmd (str bin " coach --hook")
+        updated (cond-> (install-plan settings :SessionEnd
+                                      {:hooks [{:type "command" :command run-cmd
+                                                :timeout hook-timeout-seconds}]}
+                                      "hooks run")
+                  coach (install-plan :UserPromptSubmit
+                                      {:hooks [{:type "command" :command coach-cmd
+                                                :timeout 30}]}
+                                      "coach --hook"))
         added? (not= (count (get-in settings [:hooks :SessionEnd]))
                      (count (get-in updated [:hooks :SessionEnd])))]
     (fs/create-dirs (fs/parent settings-file))
     (spit settings-file (str (json/generate-string updated {:pretty true}) "\n"))
-    {:status (if added? :installed :updated)
-     :settings settings-file
-     :command cmd
-     :note "every session now ends with ingest-notes + compile-context; consolidate runs when due"}))
+    (cond-> {:status (if added? :installed :updated)
+             :settings settings-file
+             :command run-cmd
+             :note "every session now ends with ingest-notes + compile-context; consolidate runs when due"}
+      coach (assoc :coach-command coach-cmd))))

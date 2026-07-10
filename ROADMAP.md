@@ -212,7 +212,7 @@ Escalate graph facts → episode summaries → raw pages when the graph can't
 support an answer (needs issue 14), and replace fixed-depth BFS with an
 evidence-guided walk over the same graph. *(review §3.2, TierMem/MRAgent)*
 
-### 21. Gated push — the coach pattern
+### 21. Gated push — the coach pattern ✅ *(2026-07-10)*
 The push-side complement to the skill's pull-side judgment: a hook (task
 start, about-to-mutate) that decides *whether* the graph has something worth
 interrupting with — standing decisions being the obvious trigger.
