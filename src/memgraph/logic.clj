@@ -237,6 +237,7 @@
    :code 0.95
    :user-assertion 0.9
    :session-log 0.7
+   :agent-note 0.65
    :inferred 0.6})
 
 (defn confidence-ceiling [source-type]

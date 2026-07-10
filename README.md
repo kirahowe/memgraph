@@ -197,10 +197,24 @@ CLI / skill front-end        src/memgraph/cli.clj        arg parsing, JSON in/ou
    drift, and ambiguity detection backstops both. Session-derived
    facts are second-class evidence by design: confidence capped at 0.7,
    source-type `session-log`. `--dry-run` shows what would be ingested.
-3. **`ingest`** — batch JSONL (file or stdin) under one episode. Each line
+3. **`ingest-notes`** — the ambient tier (`docs/consuming-auto-memory.md`):
+   consumes the harness's auto-memory notes (Claude Code's
+   `~/.claude/projects/<project>/memory/`) as an extraction substrate —
+   already LLM-distilled, delta-detected per file so only changed notes reach
+   the extractor, one episode per (file, revision) so provenance answers
+   "which note file, at which state, said this." Notes flatten who-said-what,
+   so everything ingests as agent inference: source-type `agent-note`,
+   confidence capped at 0.65, and never a commitment — a decision reported by
+   a note is demoted to an observation; genuine decisions arrive via `assert`.
+   No reconciliation: the harness compacts notes under space pressure, and
+   absence-by-compaction isn't falsity — un-restated facts just fade by
+   disuse. The marker-delimited managed section memgraph writes into
+   `MEMORY.md` is stripped before hashing and extraction (the echo-loop
+   guard), so the graph never re-consumes its own compiled view.
+4. **`ingest`** — batch JSONL (file or stdin) under one episode. Each line
    goes through the full conflict machinery; `class` is accepted as an alias
    for the epistemic field.
-4. **`assert`** — one fact, interactively or from a skill.
+5. **`assert`** — one fact, interactively or from a skill.
 
 ## Forgetting
 

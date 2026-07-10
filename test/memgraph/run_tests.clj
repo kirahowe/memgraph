@@ -6,6 +6,7 @@
             [memgraph.core-test]
             [memgraph.judge-test]
             [memgraph.logic-test]
+            [memgraph.notes-test]
             [memgraph.session-test]))
 
 (defn -main [& _]
@@ -13,6 +14,7 @@
                                           'memgraph.core-test
                                           'memgraph.code-ingest-test
                                           'memgraph.session-test
+                                          'memgraph.notes-test
                                           'memgraph.judge-test
                                           'memgraph.consolidate-test
                                           'memgraph.bench-test)]

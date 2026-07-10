@@ -43,7 +43,7 @@ Goal: zero-effort capture in, zero-effort injection out, with memgraph as the
 consolidator in the middle. Build order and design are already specified in
 `docs/consuming-auto-memory.md` §8.
 
-### 1. `ingest-notes` — Claude Code auto-memory as the fourth ingestion tier
+### 1. `ingest-notes` — Claude Code auto-memory as the fourth ingestion tier ✅ *(2026-07-10)*
 Adapter over the existing `session-extract` machinery: delta-detect changed
 note files, extract with a notes-tuned prompt, ingest under new source-type
 `agent-note` with an inference-grade confidence ceiling. The note tier can

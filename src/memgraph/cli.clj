@@ -179,6 +179,13 @@
       (fn [s]
         (emit opts (extract s (select-keys opts [:file :ref :extractor :dry-run])))))))
 
+(defn cmd-ingest-notes [{:keys [opts]}]
+  (let [ingest-notes (requiring-resolve 'memgraph.ingest.notes/ingest!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (ingest-notes s (select-keys opts [:harness :dir :project
+                                                      :extractor :dry-run])))))))
+
 (defn cmd-dump [{:keys [opts]}]
   (with-store opts
     (fn [s]
@@ -275,6 +282,17 @@ Commands:
                         Default extractor: $MEMGRAPH_LLM_CMD or \"claude -p\".
                         Extracted facts are capped at 0.7 confidence, source-type
                         session-log. Use --dry-run to review before ingesting.
+  ingest-notes        Ingest the harness's auto-memory notes (the ambient
+                        capture tier): delta-detects changed note files and
+                        extracts only those, one episode per (file, revision).
+                        [--harness claude-code] [--project DIR] [--dir NOTES_DIR]
+                        [--dry-run] [--extractor \"claude -p\"]
+                        Notes ingest as agent inference: source-type agent-note,
+                        confidence capped at 0.65, never commitments (a decision
+                        reported by a note is demoted to an observation). No
+                        reconciliation: notes the harness compacts away fade by
+                        disuse instead of being invalidated. The managed
+                        memgraph section of MEMORY.md is never re-consumed.
   dump                Export everything as JSONL [--out FILE]
   stats               Store counts
   consolidate         Offline consolidation pass: LLM-summarize and close open
@@ -320,6 +338,7 @@ Commands:
    {:cmds ["ingest-code"] :fn cmd-ingest-code}
    {:cmds ["ingest"] :fn cmd-ingest}
    {:cmds ["session-extract"] :fn cmd-session-extract :spec {:dry-run {:coerce :boolean}}}
+   {:cmds ["ingest-notes"] :fn cmd-ingest-notes :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["dump"] :fn cmd-dump}
    {:cmds ["stats"] :fn cmd-stats}
    {:cmds ["consolidate"] :fn cmd-consolidate
