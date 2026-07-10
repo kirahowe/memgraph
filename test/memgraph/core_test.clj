@@ -497,3 +497,44 @@
       (is (= 23 (types "predicate")))
       (is (= 2 (types "entity")))
       (is (= 1 (types "fact"))))))
+
+(deftest predicate-promotion
+  (with-stores [s]
+    ;; coin by first use, accumulate facts under the staging term
+    (core/assert-fact s {:subject "billing" :predicate "x/rate-limited-by"
+                         :object "redis-bucket" :object-kind :literal})
+    (core/assert-fact s {:subject "api" :predicate "x/rate-limited-by"
+                         :object "token-bucket" :object-kind :literal})
+    (let [r (core/promote-predicate s {:from "x/rate-limited-by"
+                                       :to "core/rate-limited-by"
+                                       :definition "Subject is rate limited by the object mechanism."
+                                       :category :procedural})]
+      (is (= :promoted (:status r)))
+      (is (= 2 (:facts-rewritten r))))
+    (testing "facts moved to the stable term, history untouched"
+      (is (= ["redis-bucket"]
+             (mapv :object-lit (:facts (core/get-facts s {:entity "billing"
+                                                          :predicate :core/rate-limited-by})))))
+      (is (empty? (:facts (core/get-facts s {:entity "billing"
+                                             :predicate :x/rate-limited-by})))))
+    (testing "the stable twin carries the registry row"
+      (let [p (store/-get-predicate s :core/rate-limited-by)]
+        (is (= :stable (:status p)))
+        (is (= :procedural (:category p)))))
+    (testing "the staging term is deprecated with a forwarding address"
+      (let [p (store/-get-predicate s :x/rate-limited-by)]
+        (is (= :deprecated (:status p)))
+        (is (= :core/rate-limited-by (:replaced-by p))))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"deprecated"
+                            (core/assert-fact s {:subject "billing"
+                                                 :predicate "x/rate-limited-by"
+                                                 :object "z" :object-kind :literal}))))
+    (testing "guards: only x/* -> fresh core/*"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"staging"
+                            (core/promote-predicate s {:from "core/depends-on"
+                                                       :to "core/needs"})))
+      (core/assert-fact s {:subject "api" :predicate "x/other"
+                           :object "y" :object-kind :literal})
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exists"
+                            (core/promote-predicate
+                             s {:from "x/other" :to "core/depends-on"}))))))

@@ -64,6 +64,40 @@
 (defn register-predicate [s pred]
   (store/-register-predicate s (logic/prepare-registration pred)))
 
+(defn promote-predicate
+  "Graduate a staging predicate: register the stable :core/* twin (fields
+  carried from the staging row, overridable), rewrite every fact onto it (a
+  rename of the term, not a belief change — validity and transaction time
+  untouched), and deprecate the staging term with a :replaced-by pointer, so
+  further writes to it fail with the forwarding address.
+  opts: :from (x/*) :to (core/*) [:label :definition :category :object-kind
+        :cardinality :maps-to :default-epistemic]"
+  [s {:keys [from to] :as opts}]
+  (let [from-k (logic/->kw from)
+        to-k (logic/->kw to)]
+    (when-not (and from-k (= "x" (namespace from-k)))
+      (logic/fail "Only x/* staging predicates promote"
+                  {:type :not-a-staging-predicate :from from}))
+    (when-not (and to-k (= "core" (namespace to-k)))
+      (logic/fail "Promote to a core/* id"
+                  {:type :not-a-core-predicate :to to}))
+    (let [staging (or (store/-get-predicate s from-k)
+                      (logic/fail (str "Predicate not found: " from-k)
+                                  {:type :unknown-predicate :predicate from-k}))]
+      (when (store/-get-predicate s to-k)
+        (logic/fail (str "Predicate already exists: " to-k)
+                    {:type :predicate-exists :predicate to-k
+                     :hint "promotion mints a new core term; merging into an existing one is a curation decision, not a promotion"}))
+      (store/-register-predicate
+       s (merge (dissoc staging :status :replaced-by)
+                {:id to-k :status :stable}
+                (into {} (filter (comp some? val))
+                      (select-keys opts [:label :definition :category :object-kind
+                                         :cardinality :maps-to :default-epistemic]))))
+      (let [n (store/-repoint-predicate s from-k to-k)]
+        (store/-register-predicate s (assoc staging :status :deprecated :replaced-by to-k))
+        {:status :promoted :from from-k :to to-k :facts-rewritten n}))))
+
 ;; ---------------------------------------------------------------------------
 ;; Entities
 ;; ---------------------------------------------------------------------------

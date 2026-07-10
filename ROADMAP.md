@@ -184,7 +184,7 @@ Highest-authority source; parse ADR files into `supersedes` /
 constitution/spec output is now the largest authoring pipeline in the field —
 this is the "eat their output" wedge. *(TODO #2; comparison §6.7)*
 
-### 17. Predicate promotion command
+### 17. Predicate promotion command ✅ *(2026-07-10)*
 `x/*` → `core/*`: register the stable twin, rewrite facts, deprecate the
 staging term. Promoted from the TODO backlog because note-noise from
 `ingest-notes` makes the staging namespace work harder. *(TODO #3;

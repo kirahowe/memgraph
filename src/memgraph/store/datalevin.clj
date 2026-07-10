@@ -287,6 +287,12 @@
                            (map (fn [f] {:db/id f :fact/object-ref to-eid}) obj)))
       (count (distinct (concat subj obj)))))
 
+  (-repoint-predicate [_ from-pred to-pred]
+    (let [eids (d/q '[:find [?f ...] :in $ ?p :where [?f :fact/predicate ?p]]
+                    (d/db conn) from-pred)]
+      (d/transact! conn (mapv (fn [e] {:db/id e :fact/predicate to-pred}) eids))
+      (count eids)))
+
   (-delete-entity [_ entity-id]
     (d/transact! conn [[:db/retractEntity [:entity/id entity-id]]])
     entity-id)

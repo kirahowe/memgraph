@@ -105,6 +105,13 @@
                        facts affected)))
       (count affected)))
 
+  (-repoint-predicate [_ from-pred to-pred]
+    (let [ids (keep #(when (= from-pred (:predicate %)) (:id %))
+                    (vals (:facts @state)))]
+      (swap! state update :facts
+             (fn [fs] (reduce #(assoc-in %1 [%2 :predicate] to-pred) fs ids)))
+      (count ids)))
+
   (-delete-entity [_ entity-id]
     (swap! state
            (fn [st]

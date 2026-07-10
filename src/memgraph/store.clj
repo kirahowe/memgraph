@@ -36,6 +36,10 @@
   (-repoint-facts [s from-entity-id to-entity-id]
     "Re-reference every fact whose subject or object is from-entity onto
     to-entity (the merge primitive). Returns the number of facts touched.")
+  (-repoint-predicate [s from-pred to-pred]
+    "Rewrite every fact's predicate from one id to another (the promotion
+    primitive — a rename of the term, not a belief change: validity and
+    transaction time are untouched). Returns the number of facts touched.")
   (-delete-entity [s entity-id]
     "Remove an entity row (the merged-away husk; its names live on as
     aliases of the survivor). Facts are never deleted.")

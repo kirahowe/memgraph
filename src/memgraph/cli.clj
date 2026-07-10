@@ -144,6 +144,13 @@
                         s (select-keys opts [:id :label :category :object-kind
                                              :cardinality :definition :default-epistemic]))))))
 
+(defn cmd-predicate-promote [{:keys [opts]}]
+  (with-store opts
+    (fn [s] (emit opts (core/promote-predicate
+                        s (select-keys opts [:from :to :label :definition :category
+                                             :object-kind :cardinality :maps-to
+                                             :default-epistemic]))))))
+
 (defn cmd-episode-open [{:keys [opts]}]
   (with-store opts
     (fn [s] (emit opts (core/open-episode s (select-keys opts [:source-type :ref]))))))
@@ -341,6 +348,13 @@ Commands:
   near-match resolutions self-heal by recording the queried name as an alias.
   predicates          List the vocabulary [--category C] [--status S] [--usage]
   predicate register  Coin an :x/* predicate: --id x/uses-pattern [--definition ...]
+  predicate promote   Graduate a staging term: --from x/uses-pattern
+                        --to core/uses-pattern [--definition ...] [--label ...]
+                        [--category ...] [--object-kind ...] [--cardinality ...]
+                        [--maps-to ...]. Registers the stable twin, rewrites
+                        every fact onto it (term rename, history untouched),
+                        deprecates the x/* id with a replaced-by pointer —
+                        further writes to it fail with the forwarding address.
   evidence            The raw bytes an episode was extracted from:
                         --episode ID | --hash SHA256 [--evidence-dir DIR]
                         Provenance past the summary: session-extract and
@@ -458,6 +472,7 @@ Commands:
    {:cmds ["entity" "duplicates"] :fn cmd-entity-duplicates}
    {:cmds ["predicates"] :fn cmd-predicates :spec {:usage {:coerce :boolean}}}
    {:cmds ["predicate" "register"] :fn cmd-predicate-register}
+   {:cmds ["predicate" "promote"] :fn cmd-predicate-promote}
    {:cmds ["evidence"] :fn cmd-evidence}
    {:cmds ["episode" "open"] :fn cmd-episode-open}
    {:cmds ["episode" "close"] :fn cmd-episode-close}
