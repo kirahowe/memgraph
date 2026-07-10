@@ -60,7 +60,7 @@ free every session. Ships in the same change as the echo-loop guard: the
 managed section is excluded from `ingest-notes`, making compile → ingest →
 compile a fixed point. *(consuming-auto-memory §3; closes comparison §4 gap #2)*
 
-### 3. SessionEnd hook — make the loop ambient
+### 3. SessionEnd hook — make the loop ambient ✅ *(2026-07-10)*
 Document the hook in the skill and add a `memgraph hooks install`
 convenience: every session ends with `ingest-notes && compile-context`;
 `consolidate` runs at lower frequency. *(consuming-auto-memory §4)*

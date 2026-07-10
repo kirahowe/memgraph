@@ -5,6 +5,7 @@
             [memgraph.consolidate-test]
             [memgraph.context-test]
             [memgraph.core-test]
+            [memgraph.hooks-test]
             [memgraph.judge-test]
             [memgraph.logic-test]
             [memgraph.notes-test]
@@ -17,6 +18,7 @@
                                           'memgraph.session-test
                                           'memgraph.notes-test
                                           'memgraph.context-test
+                                          'memgraph.hooks-test
                                           'memgraph.judge-test
                                           'memgraph.consolidate-test
                                           'memgraph.bench-test)]

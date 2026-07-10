@@ -193,6 +193,19 @@
         (emit opts (compile-context s (select-keys opts [:harness :dir :project
                                                          :budget :dry-run])))))))
 
+(defn cmd-hooks-run [{:keys [opts]}]
+  (let [run (requiring-resolve 'memgraph.hooks/run!)]
+    (with-store opts
+      (fn [s]
+        (emit opts (run s (assoc (select-keys opts [:harness :project :dir :extractor
+                                                    :consolidate-days :command
+                                                    :resolve :min-confidence])
+                                 :db (db-path opts))))))))
+
+(defn cmd-hooks-install [{:keys [opts]}]
+  (let [install (requiring-resolve 'memgraph.hooks/install!)]
+    (emit opts (install (select-keys opts [:project :harness :consolidate-days :bin])))))
+
 (defn cmd-dump [{:keys [opts]}]
   (with-store opts
     (fn [s]
@@ -312,6 +325,20 @@ Commands:
                         excluded — the view carries what the code can't say).
                         [--harness claude-code] [--project DIR] [--dir NOTES_DIR]
                         [--budget 25000] [--dry-run]
+  hooks install       Wire the ambient loop into the project's Claude Code
+                        hooks (.claude/settings.json, SessionEnd): every
+                        session ends with `hooks run`. Idempotent; foreign
+                        hooks and other settings are preserved.
+                        [--project DIR] [--harness claude-code]
+                        [--consolidate-days 7] [--bin memgraph]
+  hooks run           The SessionEnd pass: ingest-notes, compile-context,
+                        and consolidate when due (stamp-gated, default every
+                        7 days; 0 = always). Stages report independently —
+                        an extractor failure never blocks the deterministic
+                        recompile. [--harness claude-code] [--project DIR]
+                        [--dir NOTES_DIR] [--consolidate-days 7]
+                        [--extractor CMD] [--command CMD] [--resolve]
+                        [--min-confidence 0.8]
   dump                Export everything as JSONL [--out FILE]
   stats               Store counts
   consolidate         Offline consolidation pass: LLM-summarize and close open
@@ -360,6 +387,11 @@ Commands:
    {:cmds ["ingest-notes"] :fn cmd-ingest-notes :spec {:dry-run {:coerce :boolean}}}
    {:cmds ["compile-context"] :fn cmd-compile-context
     :spec {:budget {:coerce :long} :dry-run {:coerce :boolean}}}
+   {:cmds ["hooks" "run"] :fn cmd-hooks-run
+    :spec {:consolidate-days {:coerce :long} :resolve {:coerce :boolean}
+           :min-confidence {:coerce :double}}}
+   {:cmds ["hooks" "install"] :fn cmd-hooks-install
+    :spec {:consolidate-days {:coerce :long}}}
    {:cmds ["dump"] :fn cmd-dump}
    {:cmds ["stats"] :fn cmd-stats}
    {:cmds ["consolidate"] :fn cmd-consolidate

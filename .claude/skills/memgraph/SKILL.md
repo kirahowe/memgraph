@@ -79,6 +79,23 @@ Choose the epistemic class deliberately — it sets the conflict behavior:
   (Forgetting needs no pass: confidence decays by disuse, computed at read
   time; re-asserting a fact reinforces it.)
 
+## The ambient loop (zero-effort floor)
+
+The capture/injection loop can run itself: `bin/memgraph hooks install` wires
+a SessionEnd hook so every session ends with `hooks run` — `ingest-notes`
+(the harness's auto-memory notes, delta-detected, ingested as inference-grade
+`agent-note` facts) then `compile-context` (the graph's current view written
+into the managed section of `MEMORY.md`, which the harness injects into the
+next session), with `consolidate` running when due (default: weekly).
+
+The hook is the floor beneath this skill, not a replacement for it:
+note-derived facts are second-class evidence (capped 0.65, never
+commitments), so **genuine decisions still need the direct path** — when the
+user decides something, `assert --class commitment` it yourself; when you
+need history, provenance, or time-travel, query — the injected view only
+carries the headlines. Never edit the marker-delimited managed section of
+`MEMORY.md` by hand; it is regenerated on every compile and never re-ingested.
+
 ## Handling responses
 
 - `status: flagged` means the new fact contradicts a standing commitment. Do

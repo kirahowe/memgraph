@@ -237,6 +237,12 @@ scans never reinforce — only intent writes do.
 
 ## Maintenance
 
+- `hooks install` / `hooks run` — the ambient loop, automated: a Claude Code
+  SessionEnd hook (wired into `.claude/settings.json` by `hooks install`)
+  runs `ingest-notes` → `compile-context` → `consolidate`-when-due (stamp-
+  gated, default weekly) at the end of every session. Stages report
+  independently — an extractor failure never blocks the deterministic
+  recompile. Capture in, injection out, zero behavior change required.
 - `compile-context` — the write-back half of the ambient loop
   (`docs/consuming-auto-memory.md`): compiles the graph's current view into a
   marker-delimited managed section at the head of the file the harness
