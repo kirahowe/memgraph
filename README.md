@@ -294,6 +294,9 @@ bb bench       # mechanics: recorded LLM outputs, real store and ingesters,
                # Deterministic; non-zero exit below a perfect score, and it
                # runs in the test suite as a longitudinal regression gate.
 bb bench llm   # quality: the same graph, a real model ($MEMGRAPH_LLM_CMD).
+               # `bb bench llm 5` judges each labeled conflict pair 5 times
+               # (default 3): accuracy-of-majority with per-pair flip rate —
+               # a pair that flips is a pair --resolve must not act on.
                # Measures extraction precision/recall against annotated
                # transcripts, judge verdict accuracy on labeled conflict
                # pairs, and entity fragmentation (suspect names that

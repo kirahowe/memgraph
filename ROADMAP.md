@@ -121,7 +121,7 @@ The fixture already contains a rename and a migration; measure Recovery@T —
 how many reads/writes until old names resolve and stale facts fade.
 *(review §4.3.5, ShiftBench)*
 
-### 10. Judge stability
+### 10. Judge stability ✅ *(2026-07-10)*
 Run each labeled conflict pair k times; report flip rate alongside accuracy
 and let stability inform the 0.8 resolution gate. Cheap. *(review §3.9, §4.3.8)*
 

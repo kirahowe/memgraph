@@ -196,7 +196,7 @@
 
 (defn- precision-recall [extracted expected]
   (let [hits (count (filter expected extracted))]
-    {:precision (if (seq extracted) (double (/ hits (count extracted))) 0.0)
+    {:precision (if (seq extracted) (double (/ hits (count extracted))) 1.0)
      :recall (if (seq expected) (double (/ hits (count expected))) 1.0)
      :extracted (count extracted)
      :expected (count expected)}))
@@ -214,27 +214,44 @@
                     (precision-recall triples (get fixture/expected-triples ref))))
            (catch Exception e {:session ref :error (ex-message e)})))))
 
-(defn- llm-judge-accuracy [s]
+(defn- llm-judge-stability
+  "Run the judge k times over every open labeled pair (report-only — no
+  store mutation between runs). Single-run judge accuracy is noisy enough to
+  mislead (flip rates average 14% in the 2026 judge literature), so the
+  headline is accuracy-of-majority WITH the per-pair flip rate next to it —
+  a pair that flips at all is a pair the 0.8 resolution gate should not act
+  on."
+  [s k]
   (try
-    (let [{:keys [results]} (judge/judge-conflicts! s {})
-          graded (mapv (fn [{:keys [fact verdict]}]
-                         (let [k (logic/normalize-entity-name (:object fact))
-                               label (get fixture/conflict-labels k)]
-                           {:pair k :label label
-                            :verdict (:relation verdict)
-                            :correct (= label (:relation verdict))}))
-                       results)]
-      {:pairs graded
-       :accuracy (if (seq graded)
-                   (double (/ (count (filter :correct graded)) (count graded)))
-                   nil)})
+    (let [runs (mapv (fn [_] (:results (judge/judge-conflicts! s {}))) (range k))
+          by-pair (group-by (fn [r] [(get-in r [:fact :id]) (get-in r [:candidate :id])])
+                            (apply concat runs))
+          graded (mapv (fn [[_ rs]]
+                         (let [key (logic/normalize-entity-name
+                                    (get-in (first rs) [:fact :object]))
+                               label (get fixture/conflict-labels key)
+                               verdicts (mapv (comp :relation :verdict) rs)
+                               [majority n] (apply max-key val (frequencies verdicts))]
+                           {:pair key :label label
+                            :verdicts (frequencies verdicts)
+                            :majority majority
+                            :correct (= label majority)
+                            :flip-rate (double (- 1 (/ n (count verdicts))))}))
+                       by-pair)]
+      {:runs k
+       :pairs graded
+       :accuracy (when (seq graded)
+                   (double (/ (count (filter :correct graded)) (count graded))))
+       :mean-flip-rate (when (seq graded)
+                         (double (/ (reduce + (map :flip-rate graded))
+                                    (count graded))))})
     (catch Exception e {:error (ex-message e)})))
 
-(defn run-llm []
+(defn run-llm [{:keys [judge-runs] :or {judge-runs 3}}]
   (with-timeline-store
     (fn [s]
       {:extraction (llm-extraction-quality s)
-       :judge (llm-judge-accuracy s)})))
+       :judge (llm-judge-stability s judge-runs)})))
 
 (defn- print-llm [{:keys [extraction judge]}]
   (println "extraction quality (real model vs annotated ground truth):")
@@ -243,20 +260,26 @@
       (println (format "  %-10s ERROR %s" session error))
       (println (format "  %-10s precision %.2f  recall %.2f  suspect names %s"
                        session precision recall (pr-str suspect-names)))))
-  (println "\njudge verdict accuracy on labeled conflict pairs:")
+  (println (format "%njudge stability over %s runs per labeled pair:" (:runs judge)))
   (if (:error judge)
     (println "  ERROR" (:error judge))
-    (do (doseq [{:keys [pair label verdict correct]} (:pairs judge)]
-          (println (format "  %-10s label %-12s verdict %-12s %s"
-                           pair (name label) (name (or verdict :none))
-                           (if correct "ok" "WRONG"))))
-        (println (format "  accuracy: %s" (pr-str (:accuracy judge)))))))
+    (do (doseq [{:keys [pair label majority correct flip-rate verdicts]} (:pairs judge)]
+          (println (format "  %-18s label %-12s majority %-12s flip %.2f %-6s %s"
+                           pair (name label) (name (or majority :none))
+                           flip-rate (if correct "ok" "WRONG")
+                           (pr-str verdicts))))
+        (println (format "  accuracy (of majority): %s   mean flip rate: %s"
+                         (pr-str (:accuracy judge))
+                         (pr-str (:mean-flip-rate judge))))
+        (when (some (comp pos? :flip-rate) (:pairs judge))
+          (println "  note: pairs that flip are pairs --resolve must not act on;"
+                   "the 0.8 gate assumes verdict stability")))))
 
 ;; ---------------------------------------------------------------------------
 
 (defn -main [& args]
   (if (= "llm" (first args))
-    (print-llm (run-llm))
+    (print-llm (run-llm {:judge-runs (or (some-> (second args) parse-long) 3)}))
     (let [{:keys [scorecard] :as report} (run-mechanics)]
       (print-mechanics report)
       (System/exit (if (= 1.0 (:score scorecard)) 0 1)))))

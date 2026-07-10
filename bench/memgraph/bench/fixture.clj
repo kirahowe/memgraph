@@ -211,9 +211,13 @@
 
 (def conflict-labels
   "Open conflict pairs at the end of the timeline, keyed by the normalized
-  object both sides share, with the verdict a correct judge returns."
+  object both sides share, with the verdict a correct judge returns. (Both
+  KuzuDB pairs — the session-era depends-on and the notes-planted prefers —
+  carry the same key and the same label.)"
   {"graphql" :contradicts
-   "kuzudb"  :contradicts})
+   "kuzudb"  :contradicts
+   "shoplydb" :contradicts
+   "restwithednbodies" :contradicts})
 
 (def known-entity-names
   "Canonical entities the finished graph contains. LLM extraction that
