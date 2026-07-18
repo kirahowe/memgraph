@@ -27,6 +27,14 @@
 
 (defn- parse-time [s] (logic/parse-instant s))
 
+(defn- log-reads!
+  "Feed the outcome signal (#24): every read verb records which facts it
+  surfaced. Silent and failure-proof."
+  [opts verb facts]
+  (try ((requiring-resolve 'memgraph.outcome/log-reads!)
+        (db-path opts) verb (keep :id facts))
+       (catch Exception _ nil)))
+
 (defn- open-store [opts]
   (let [open (requiring-resolve 'memgraph.store.datalevin/open-store)
         s (open (db-path opts))]
@@ -66,10 +74,12 @@
 (defn cmd-facts [{:keys [opts]}]
   (with-store opts
     (fn [s]
-      (emit opts (core/get-facts s (assoc (select-keys opts [:entity :entity-scope :direction
-                                                             :predicate :scope :include-invalidated
-                                                             :min-confidence])
-                                          :as-of (parse-time (:as-of opts))))))))
+      (let [r (core/get-facts s (assoc (select-keys opts [:entity :entity-scope :direction
+                                                          :predicate :scope :include-invalidated
+                                                          :min-confidence])
+                                       :as-of (parse-time (:as-of opts))))]
+        (log-reads! opts :facts (:facts r))
+        (emit opts r)))))
 
 (defn cmd-neighbor [{:keys [opts]}]
   (with-store opts
@@ -88,9 +98,11 @@
       (logic/fail "recall requires a query" {:type :missing-query}))
     (with-store opts
       (fn [s]
-        (emit opts (core/recall s (str query)
-                                {:min-hits (:min-hits opts)
-                                 :evidence-dir (evidence-dir opts)}))))))
+        (let [r (core/recall s (str query)
+                             {:min-hits (:min-hits opts)
+                              :evidence-dir (evidence-dir opts)})]
+          (log-reads! opts :recall (:facts r))
+          (emit opts r))))))
 
 (defn cmd-history [{:keys [opts]}]
   (with-store opts
@@ -102,7 +114,10 @@
     (when (str/blank? (str query))
       (logic/fail "search requires a query" {:type :missing-query}))
     (with-store opts
-      (fn [s] (emit opts (core/search s (str query) {}))))))
+      (fn [s]
+        (let [r (core/search s (str query) {})]
+          (log-reads! opts :search (:facts r))
+          (emit opts r))))))
 
 (defn cmd-invalidate [{:keys [opts]}]
   (with-store opts
@@ -270,7 +285,17 @@
           (logic/fail "coach requires a query (or --hook with stdin)"
                       {:type :missing-query}))
         (with-store opts
-          (fn [s] (emit opts (consult s (str query)))))))))
+          (fn [s]
+            (let [r (consult s (str query))]
+              (when (:push r)
+                (log-reads! opts :coach (concat (:commitments r) (:hazards r))))
+              (emit opts r))))))))
+
+(defn cmd-outcome [{:keys [opts args]}]
+  (let [valence (or (first args) (:valence opts))
+        outcome! (requiring-resolve 'memgraph.outcome/outcome!)]
+    (with-store opts
+      (fn [s] (emit opts (outcome! s (db-path opts) {:valence valence}))))))
 
 (defn cmd-hooks-run [{:keys [opts]}]
   (let [run (requiring-resolve 'memgraph.hooks/run!)]
@@ -479,6 +504,15 @@ Commands:
                         [--dir NOTES_DIR] [--consolidate-days 7]
                         [--extractor CMD] [--command CMD] [--resolve]
                         [--min-confidence 0.8]
+  outcome             Close the loop on retrieved facts: memgraph outcome
+                        accepted|rejected. Read verbs (facts/search/recall/
+                        coach) log which facts they surfaced (<db>.retrievals);
+                        accepted reinforces everything retrieved since the
+                        last outcome mark (disuse clock reset — usefulness is
+                        evidence of aliveness, never higher confidence);
+                        rejected reinforces nothing and reports the facts
+                        that were in play. Wire it to PR merge/close, or run
+                        by hand; the rejection's lesson goes to ingest-failure.
   dump                Export everything as JSONL [--out FILE]
   load                Restore a store from a dump: --file F | stdin. The
                         two-way half of portability — fact/episode ids,
@@ -512,6 +546,7 @@ Commands:
                                                :min-confidence {:coerce :double}}}
    {:cmds ["recall"] :fn cmd-recall :spec {:min-hits {:coerce :long}}}
    {:cmds ["coach"] :fn cmd-coach :spec {:hook {:coerce :boolean}}}
+   {:cmds ["outcome"] :fn cmd-outcome}
    {:cmds ["history"] :fn cmd-history}
    {:cmds ["search"] :fn cmd-search}
    {:cmds ["invalidate"] :fn cmd-invalidate}

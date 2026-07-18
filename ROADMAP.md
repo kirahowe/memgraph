@@ -239,7 +239,7 @@ Trust levels on sources and a novelty/outlier check on writes, driven by what
 the red-team case (issue 8) shows leaks through the existing incidental
 mitigations. *(review §3.6)*
 
-### 24. Outcome signal into the store
+### 24. Outcome signal into the store ✅ *(2026-07-10)*
 Reinforcement on true retrieval (the deferred TODO half) plus session valence
 from the failure ingester (issue 15): facts retrieved in accepted work are
 evidence; facts retrieved in reverted work are too. Keeps decay from being

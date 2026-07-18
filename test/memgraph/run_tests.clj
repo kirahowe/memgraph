@@ -14,6 +14,7 @@
             [memgraph.load-test]
             [memgraph.logic-test]
             [memgraph.notes-test]
+            [memgraph.outcome-test]
             [memgraph.retrieval-test]
             [memgraph.session-test]))
 
@@ -29,6 +30,7 @@
                                           'memgraph.notes-test
                                           'memgraph.retrieval-test
                                           'memgraph.coach-test
+                                          'memgraph.outcome-test
                                           'memgraph.context-test
                                           'memgraph.hooks-test
                                           'memgraph.judge-test
