@@ -245,7 +245,7 @@ from the failure ingester (issue 15): facts retrieved in accepted work are
 evidence; facts retrieved in reverted work are too. Keeps decay from being
 blind to usefulness. *(review §3.5)*
 
-### 25. Multi-writer semantics
+### 25. Multi-writer semantics ✅ *(2026-07-10 — write lease)*
 Coding agents are increasingly multi-agent; two subagents asserting about the
 same entity currently hit last-write-wins at the LMDB level. Even a
 lease/lock or append-log-and-reconcile design closes the obvious hole.

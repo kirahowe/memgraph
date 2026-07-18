@@ -274,6 +274,11 @@ scans never reinforce — only intent writes do.
   the LLM is unavailable, so the pass always makes progress.
 - `judge` — LLM review of open conflicts on its own (see "How conflicts
   resolve").
+- Writes take a **lease** (`<db>.lock`, atomic, token-guarded, 30s TTL): the
+  conflict machinery is read-decide-write, so two concurrent subagents could
+  otherwise both see "no conflict" and insert a contradiction. Whole write
+  operations serialize at the CLI boundary; reads never take the lease; a
+  crashed writer'''s lease expires instead of wedging the store.
 - `dump` / `load` — the portability story, two-way: `dump` exports everything
   as JSONL (the live LMDB directory is gitignored; the dump is the committable
   artifact), `load` restores a fresh store from it — fact/episode ids,

@@ -47,19 +47,30 @@
   (let [s (open-store opts)]
     (try (f s) (finally (store/-close s)))))
 
+(defn- with-write-store
+  "Write commands run under the write lease (multi-writer safety, #25):
+  the conflict machinery is read-decide-write, so whole operations
+  serialize at this boundary. Reads never take the lease."
+  [opts f]
+  (let [with-lease (requiring-resolve 'memgraph.lease/with-lease)]
+    (with-lease (db-path opts)
+                {:owner (or (System/getenv "MEMGRAPH_WRITER") "memgraph-cli")
+                 :wait-ms (:lease-wait opts)}
+                #(with-store opts f))))
+
 ;; ---------------------------------------------------------------------------
 ;; Commands
 ;; ---------------------------------------------------------------------------
 
 (defn cmd-init [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s]
       (emit opts {:status "initialized"
                   :db (str (fs/canonicalize (db-path opts)))
                   :predicates (count (store/-list-predicates s {}))}))))
 
 (defn cmd-assert [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s]
       (emit opts (core/assert-fact s (-> opts
                                          (select-keys [:subject :subject-type :subject-scope
@@ -120,7 +131,7 @@
           (emit opts r))))))
 
 (defn cmd-invalidate [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/invalidate s (assoc (select-keys opts [:fact-id :reason])
                                                  :at (parse-time (:at opts))))))))
 
@@ -132,12 +143,12 @@
   (let [judge (requiring-resolve (if (:sweep opts)
                                    'memgraph.judge/sweep-conflicts!
                                    'memgraph.judge/judge-conflicts!))]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (judge s (select-keys opts [:command :resolve :min-confidence])))))))
 
 (defn cmd-entity-ensure [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/ensure-entity s {:name (:name opts)
                                               :type (:type opts)
                                               :scope (:scope opts)})))))
@@ -148,19 +159,19 @@
                                                 :scope (:scope opts)})))))
 
 (defn cmd-entity-rename [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/rename-entity s (select-keys opts [:from :to :scope]))))))
 
 (defn cmd-entity-alias [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/alias-entity s (select-keys opts [:name :alias :scope]))))))
 
 (defn cmd-entity-merge [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/merge-entities s (select-keys opts [:from :into :scope]))))))
 
 (defn cmd-entity-split [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/split-entity s (select-keys opts [:from :into :scope]))))))
 
 (defn cmd-entity-duplicates [{:keys [opts]}]
@@ -172,24 +183,24 @@
     (fn [s] (emit opts (core/list-predicates s (select-keys opts [:category :status :usage]))))))
 
 (defn cmd-predicate-register [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/register-predicate
                         s (select-keys opts [:id :label :category :object-kind
                                              :cardinality :definition :default-epistemic]))))))
 
 (defn cmd-predicate-promote [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/promote-predicate
                         s (select-keys opts [:from :to :label :definition :category
                                              :object-kind :cardinality :maps-to
                                              :default-epistemic]))))))
 
 (defn cmd-episode-open [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/open-episode s (select-keys opts [:source-type :ref]))))))
 
 (defn cmd-episode-close [{:keys [opts]}]
-  (with-store opts
+  (with-write-store opts
     (fn [s] (emit opts (core/close-episode s (select-keys opts [:episode :summary]))))))
 
 (defn cmd-episode-list [{:keys [opts]}]
@@ -204,25 +215,25 @@
                     (comp (remove str/blank?)
                           (map #(logic/normalize-keys (json/parse-string % true))))
                     lines)]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (core/ingest s (select-keys opts [:episode :source-type :ref]) facts))))))
 
 (defn cmd-ingest-code [{:keys [opts]}]
   (let [ingest-code (requiring-resolve 'memgraph.ingest.clj-code/ingest!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s] (emit opts (ingest-code s (select-keys opts [:dir :scope])))))))
 
 (defn cmd-session-extract [{:keys [opts]}]
   (let [extract (requiring-resolve 'memgraph.ingest.session/extract!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (extract s (assoc (select-keys opts [:file :ref :extractor :dry-run])
                                      :evidence-dir (evidence-dir opts))))))))
 
 (defn cmd-ingest-notes [{:keys [opts]}]
   (let [ingest-notes (requiring-resolve 'memgraph.ingest.notes/ingest!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (ingest-notes s (assoc (select-keys opts [:harness :dir :project
                                                              :extractor :dry-run])
@@ -230,12 +241,12 @@
 
 (defn cmd-ingest-adr [{:keys [opts]}]
   (let [ingest-adr (requiring-resolve 'memgraph.ingest.adr/ingest!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s] (emit opts (ingest-adr s (select-keys opts [:dir :file :dry-run])))))))
 
 (defn cmd-ingest-failure [{:keys [opts]}]
   (let [extract (requiring-resolve 'memgraph.ingest.failure/extract!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (extract s (assoc (select-keys opts [:file :ref :context
                                                         :extractor :dry-run])
@@ -294,12 +305,12 @@
 (defn cmd-outcome [{:keys [opts args]}]
   (let [valence (or (first args) (:valence opts))
         outcome! (requiring-resolve 'memgraph.outcome/outcome!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s] (emit opts (outcome! s (db-path opts) {:valence valence}))))))
 
 (defn cmd-hooks-run [{:keys [opts]}]
   (let [run (requiring-resolve 'memgraph.hooks/run!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (run s (assoc (select-keys opts [:harness :project :dir :extractor
                                                     :consolidate-days :command
@@ -330,7 +341,7 @@
                       (comp (remove str/blank?)
                             (map #(json/parse-string % true)))
                       lines)]
-    (with-store opts
+    (with-write-store opts
       (fn [s] (emit opts (core/load-dump s records))))))
 
 (defn cmd-stats [{:keys [opts]}]
@@ -339,7 +350,7 @@
 
 (defn cmd-consolidate [{:keys [opts]}]
   (let [consolidate (requiring-resolve 'memgraph.consolidate/consolidate!)]
-    (with-store opts
+    (with-write-store opts
       (fn [s]
         (emit opts (consolidate s (select-keys opts [:command :resolve :min-confidence
                                                      :min-usage])))))))

@@ -11,6 +11,7 @@
             [memgraph.failure-test]
             [memgraph.hooks-test]
             [memgraph.judge-test]
+            [memgraph.lease-test]
             [memgraph.load-test]
             [memgraph.logic-test]
             [memgraph.notes-test]
@@ -31,6 +32,7 @@
                                           'memgraph.retrieval-test
                                           'memgraph.coach-test
                                           'memgraph.outcome-test
+                                          'memgraph.lease-test
                                           'memgraph.context-test
                                           'memgraph.hooks-test
                                           'memgraph.judge-test
