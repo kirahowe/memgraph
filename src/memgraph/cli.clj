@@ -41,7 +41,9 @@
     ;; auto-seed the vocabulary on first contact with a fresh store
     (when (empty? (store/-list-predicates s {}))
       (core/seed! s))
-    s))
+    ;; every mutation appends to this writer's effect log (#25): the store
+    ;; is the materialized view, the logs are what other machines sync
+    ((requiring-resolve 'memgraph.oplog/logged-store) s (db-path opts))))
 
 (defn- with-store [opts f]
   (let [s (open-store opts)]
@@ -342,7 +344,15 @@
                             (map #(json/parse-string % true)))
                       lines)]
     (with-write-store opts
-      (fn [s] (emit opts (core/load-dump s records))))))
+      (fn [s] (emit opts (core/load-dump
+                          ((requiring-resolve 'memgraph.oplog/inner-store) s)
+                          records))))))
+
+(defn cmd-reconcile [{:keys [opts]}]
+  (let [reconcile! (requiring-resolve 'memgraph.oplog/reconcile!)
+        inner (requiring-resolve 'memgraph.oplog/inner-store)]
+    (with-write-store opts
+      (fn [s] (emit opts (reconcile! (inner s) (db-path opts)))))))
 
 (defn cmd-mcp [{:keys [opts]}]
   (let [serve! (requiring-resolve 'memgraph.mcp/serve!)]
@@ -542,6 +552,16 @@ Commands:
                         memory_recall, memory_history, memory_conflicts,
                         memory_coach, memory_assert (lease-guarded).
                         Wire up: claude mcp add memgraph -- bin/memgraph mcp
+  reconcile           Merge other writers' effect logs into this store.
+                        Every write already appends to your own log in
+                        <db>.oplog/<writer>.jsonl; sync that directory
+                        between machines however you like (git, rsync,
+                        Syncthing) and run reconcile on arrival. Foreign
+                        effects apply in canonical clock order with entity
+                        identity matched by name; claims both writers made
+                        independently collapse non-lossily; contradictions
+                        neither writer could see become sweep candidates
+                        for the judge. Idempotent.
   stats               Store counts
   consolidate         Offline consolidation pass: LLM-summarize and close open
                         episodes that contain facts (summaries become
@@ -606,6 +626,7 @@ Commands:
     :spec {:consolidate-days {:coerce :long} :coach {:coerce :boolean}}}
    {:cmds ["dump"] :fn cmd-dump}
    {:cmds ["load"] :fn cmd-load}
+   {:cmds ["reconcile"] :fn cmd-reconcile}
    {:cmds ["stats"] :fn cmd-stats}
    {:cmds ["consolidate"] :fn cmd-consolidate
     :spec {:resolve {:coerce :boolean} :min-confidence {:coerce :double}

@@ -278,11 +278,22 @@ scans never reinforce — only intent writes do.
   the LLM is unavailable, so the pass always makes progress.
 - `judge` — LLM review of open conflicts on its own (see "How conflicts
   resolve").
-- Writes take a **lease** (`<db>.lock`, atomic, token-guarded, 30s TTL): the
-  conflict machinery is read-decide-write, so two concurrent subagents could
-  otherwise both see "no conflict" and insert a contradiction. Whole write
-  operations serialize at the CLI boundary; reads never take the lease; a
-  crashed writer'''s lease expires instead of wedging the store.
+- **Multi-writer works the local-first way.** Every mutation appends an
+  effect line to this writer's own append-only log in
+  `<db>.oplog/<writer>.jsonl`, stamped with a hybrid logical clock. The live
+  store is a materialized view; the logs are the record. Each machine only
+  appends to its own file, so any file syncer (git, rsync, Syncthing) can
+  move logs between machines and a merge conflict cannot occur in transport.
+  `memgraph reconcile` applies unseen foreign effects in canonical clock
+  order, matches entity identity by name (each machine keeps its own display
+  name and picks up the other's as an alias), collapses claims both writers
+  made independently (closed, not erased), and queues contradictions neither
+  writer could see for the judge. This is deliberately not a CRDT: when two
+  machines disagree, the job is to show a human the disagreement, and open
+  conflicts are already how memgraph does that.
+- On one machine, concurrent writers serialize through a **lease**
+  (`<db>.lock`: atomic, token-guarded, 30s TTL, so a crashed writer expires
+  instead of wedging the store). Reads never take it.
 - `dump` / `load` — the portability story, two-way: `dump` exports everything
   as JSONL (the live LMDB directory is gitignored; the dump is the committable
   artifact), `load` restores a fresh store from it — fact/episode ids,

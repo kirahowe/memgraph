@@ -16,6 +16,7 @@
             [memgraph.mcp-test]
             [memgraph.logic-test]
             [memgraph.notes-test]
+            [memgraph.oplog-test]
             [memgraph.outcome-test]
             [memgraph.retrieval-test]
             [memgraph.session-test]))
@@ -35,6 +36,7 @@
                                           'memgraph.outcome-test
                                           'memgraph.lease-test
                                           'memgraph.mcp-test
+                                          'memgraph.oplog-test
                                           'memgraph.context-test
                                           'memgraph.hooks-test
                                           'memgraph.judge-test

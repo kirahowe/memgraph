@@ -245,11 +245,19 @@ from the failure ingester (issue 15): facts retrieved in accepted work are
 evidence; facts retrieved in reverted work are too. Keeps decay from being
 blind to usefulness. *(review §3.5)*
 
-### 25. Multi-writer semantics ✅ *(2026-07-10 — write lease)*
+### 25. Multi-writer semantics ✅ *(2026-07-10 — lease, then v2: append-only logs + reconcile)*
 Coding agents are increasingly multi-agent; two subagents asserting about the
 same entity currently hit last-write-wins at the LMDB level. Even a
 lease/lock or append-log-and-reconcile design closes the obvious hole.
 *(review §3.7)*
+*v2, on the local-first model: every mutation appends to this writer's own
+log in `<db>.oplog/<writer>.jsonl` (hybrid logical clock; the store is a
+materialized view). Append-only per-writer files sync through git/rsync with
+no transport conflicts; `memgraph reconcile` applies foreign effects in
+canonical order, unifies entities by name, collapses independent duplicate
+claims non-lossily, and queues cross-writer contradictions for the judge.
+Deliberately not a CRDT: divergence surfaces as open conflicts instead of
+being merged away. The lease remains for same-machine concurrency.*
 
 ### 26. Scale tier for the benchmark ✅ *(2026-07-10)*
 Synthetic history at 10×/100× fixture size (AMA-Bench-style generation,
