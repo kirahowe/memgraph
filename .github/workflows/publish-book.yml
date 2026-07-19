@@ -54,10 +54,8 @@ jobs:
       - name: Build the book
         run: bb book
 
-      - name: Configure Pages (self-enables on first run)
+      - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload the rendered book
         uses: actions/upload-pages-artifact@v3
