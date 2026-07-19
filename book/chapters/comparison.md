@@ -63,10 +63,12 @@ system with any multi-machine story beyond hosted sync).
 
 ## Where the field is ahead
 
-Honesty section. GitHub Copilot's retrieval-time validation (re-checking
-repo facts against the current branch before use) has no memgraph
-equivalent; the code ingester reconciles at write time, which is weaker at
-the moment of use. The governed tier (Copilot, Zep, the hyperscalers)
+Honesty section. GitHub Copilot's retrieval-time validation (it "checks
+those citations against the current branch to confirm the information is
+still accurate", per its
+[memory documentation](https://docs.github.com/en/copilot/concepts/agents/copilot-memory))
+has no memgraph equivalent; the code ingester reconciles at write time,
+which is weaker at the moment of use. The governed tier (Copilot, Zep, the hyperscalers)
 ships team sharing and access control that memgraph deliberately defers
 (ACL fields are carried but unenforced). The hosted platforms ship
 polished automatic extraction at a scale of engineering the pluggable

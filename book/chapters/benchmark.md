@@ -1,11 +1,13 @@
 # The benchmark
 
 No LoCoMo or LongMemEval equivalent exists for codebase memory, and the
-conversational benchmarks stopped being informative in any case: five
-vendors simultaneously claim state of the art on LoCoMo with self-run
-numbers, an audit found ground-truth errors in about 6% of its questions,
-and one project faked tens of thousands of stars for a "benchmark" that
-turned out to be an unmodified vector store. memgraph's evaluation was
+conversational benchmarks stopped being informative in any case. The
+[field survey's credibility-crisis section](https://github.com/kirahowe/memory/blob/main/docs/memory-systems-comparison.md#5-benchmarks-and-the-credibility-crisis)
+catalogs the damage, with sources: five vendors simultaneously claiming
+state of the art on LoCoMo with self-run numbers, a LoCoMo audit finding
+ground-truth errors in about 6% of its questions, and one project caught
+faking tens of thousands of stars for a "benchmark" that turned out to be
+an unmodified vector store. memgraph's evaluation was
 designed against that backdrop, with three rules: deterministic scoring
 wherever the claim allows it, measurement focused on the axes where the
 field is weakest and structure should pay, and the headline claim
@@ -60,8 +62,9 @@ extraction precision and recall against annotated transcripts, entity
 fragmentation, and judge verdict accuracy on labeled conflict pairs. Each
 pair is judged k times (default 3) with the flip rate reported alongside
 accuracy, because the judge literature measured average flip rates of 14%
-on single runs: a pair that flips under repetition is a pair `--resolve`
-must not touch, whatever its confidence claims.
+on single runs ([The Coin Flip Judge](https://arxiv.org/abs/2606.13685)):
+a pair that flips under repetition is a pair `--resolve` must not touch,
+whatever its confidence claims.
 
 ## The ablation: where structure pays, honestly
 

@@ -17,8 +17,10 @@ structural, not incidental:
   means grep and full-file reads.
 - **No invalidation.** When the deployment target changes from Heroku to Fly,
   the note saying Heroku does not go away. Contradictions accumulate
-  silently, and the harness's own documentation warns that contradictory
-  memory files produce arbitrary behavior.
+  silently, and Claude Code's own memory documentation concedes the
+  consequence: when two files "give different guidance for the same
+  behavior, Claude may pick one arbitrarily"
+  ([code.claude.com/docs/en/memory](https://code.claude.com/docs/en/memory)).
 - **No epistemic typing.** "We decided against GraphQL after a real incident"
   and "the model noticed we use kebab-case" are the same kind of line in the
   same kind of file. One of these should be nearly immovable and the other
@@ -45,9 +47,11 @@ By 2026 the field had sorted into four recognizable approaches.
 LangMem, most platform offerings) embed extracted fact strings and retrieve
 by similarity. Cheap and fast, and structurally blind to contradiction: old
 and new versions of a fact coexist as separate vectors, with recency ranking
-as the only arbiter. Notably, Mem0's v3 release removed both its graph
-memory and its write-time conflict resolution, a retreat that conceded the
-critique.
+as the only arbiter. Notably, [Mem0's v3 changelog](https://docs.mem0.ai/changelog)
+records the retreat: the release moved to an ADD-only write model (its own
+words, "Memories accumulate; nothing is overwritten or deleted") and dropped
+its external graph backends, giving up exactly the write-time contradiction
+handling its earlier version performed.
 
 **Temporal knowledge graphs** ([Zep/Graphiti](https://arxiv.org/abs/2501.13956),
 Cognee, the OpenAI temporal-agents cookbook) store entities and fact edges
@@ -63,8 +67,10 @@ the model paging data in and out through function calls. The framing is
 productive; the eviction policies are heuristic.
 
 **Files plus agency**, the camp that grew fastest in 2026: give the agent a
-filesystem and file tools and let it curate its own notes (Letta's pivot,
-Anthropic's memory tool, Claude Code auto-memory, Basic Memory). The
+filesystem and file tools and let it curate its own notes
+([Letta's pivot](https://www.letta.com/blog/context-repositories/),
+[Anthropic's memory tool](https://docs.claude.com/en/docs/agents-and-tools/tool-use/memory-tool),
+Claude Code auto-memory, Basic Memory). The
 markdown pile got a promotion: the agent maintains it now. What the camp
 cannot answer is unchanged: what did we believe in March, is this a decision
 or an observation, what contradicts what.
