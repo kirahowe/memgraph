@@ -2,7 +2,7 @@
 
 No LoCoMo or LongMemEval equivalent exists for codebase memory, and the
 conversational benchmarks stopped being informative in any case. The
-[field survey's credibility-crisis section](https://github.com/kirahowe/memory/blob/main/docs/memory-systems-comparison.md#5-benchmarks-and-the-credibility-crisis)
+[field survey's credibility-crisis section](https://github.com/kirahowe/memgraph/blob/main/docs/memory-systems-comparison.md#5-benchmarks-and-the-credibility-crisis)
 catalogs the damage, with sources: five vendors simultaneously claiming
 state of the art on LoCoMo with self-run numbers, a LoCoMo audit finding
 ground-truth errors in about 6% of its questions, and one project caught

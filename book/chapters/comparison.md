@@ -1,7 +1,7 @@
 # memgraph and the field
 
 This chapter condenses the July 2026 field survey
-([`docs/memory-systems-comparison.md`](https://github.com/kirahowe/memory/blob/main/docs/memory-systems-comparison.md),
+([`docs/memory-systems-comparison.md`](https://github.com/kirahowe/memgraph/blob/main/docs/memory-systems-comparison.md),
 which carries the full tables, capsule reviews, and sources). Scores are
 functional: what a system can do for its user, not how it is built. A
 standing caveat travels with every row: benchmark figures in this field are

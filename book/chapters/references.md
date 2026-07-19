@@ -2,14 +2,14 @@
 
 ## This repository
 
-- [`README.md`](https://github.com/kirahowe/memory/blob/main/README.md), the operational overview
-- [`ROADMAP.md`](https://github.com/kirahowe/memory/blob/main/ROADMAP.md), the 28-item build plan with findings recorded per item
-- [`docs/agent-memory-synthesis.md`](https://github.com/kirahowe/memory/blob/main/docs/agent-memory-synthesis.md), the conceptual landscape the design grew from
-- [`docs/memgraph-handoff.md`](https://github.com/kirahowe/memory/blob/main/docs/memgraph-handoff.md), design decisions with rationale and the alternatives weighed
-- [`docs/memory-systems-comparison.md`](https://github.com/kirahowe/memory/blob/main/docs/memory-systems-comparison.md), the July 2026 field comparison
-- [`docs/memagent-2026-review.md`](https://github.com/kirahowe/memory/blob/main/docs/memagent-2026-review.md), memgraph against the ICLR 2026 MemAgents workshop
-- [`docs/consuming-auto-memory.md`](https://github.com/kirahowe/memory/blob/main/docs/consuming-auto-memory.md), the ambient loop design note
-- [`.claude/skills/memgraph/SKILL.md`](https://github.com/kirahowe/memory/blob/main/.claude/skills/memgraph/SKILL.md), the usage judgment
+- [`README.md`](https://github.com/kirahowe/memgraph/blob/main/README.md), the operational overview
+- [`ROADMAP.md`](https://github.com/kirahowe/memgraph/blob/main/ROADMAP.md), the 28-item build plan with findings recorded per item
+- [`docs/agent-memory-synthesis.md`](https://github.com/kirahowe/memgraph/blob/main/docs/agent-memory-synthesis.md), the conceptual landscape the design grew from
+- [`docs/memgraph-handoff.md`](https://github.com/kirahowe/memgraph/blob/main/docs/memgraph-handoff.md), design decisions with rationale and the alternatives weighed
+- [`docs/memory-systems-comparison.md`](https://github.com/kirahowe/memgraph/blob/main/docs/memory-systems-comparison.md), the July 2026 field comparison
+- [`docs/memagent-2026-review.md`](https://github.com/kirahowe/memgraph/blob/main/docs/memagent-2026-review.md), memgraph against the ICLR 2026 MemAgents workshop
+- [`docs/consuming-auto-memory.md`](https://github.com/kirahowe/memgraph/blob/main/docs/consuming-auto-memory.md), the ambient loop design note
+- [`.claude/skills/memgraph/SKILL.md`](https://github.com/kirahowe/memgraph/blob/main/.claude/skills/memgraph/SKILL.md), the usage judgment
 
 ## Memory systems
 
