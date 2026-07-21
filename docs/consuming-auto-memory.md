@@ -1,7 +1,7 @@
 # Consuming Auto-Memory: the Ambient Loop
 
 *Design note, 2026-07-09. Follows from the field comparison
-(`memory-systems-comparison.md` §4): memgraph's two biggest functional gaps
+(`memory-systems-comparison.md` §4): claimgraph's two biggest functional gaps
 are ambient capture and ambient injection, and the harnesses spent 2026
 building exactly those — writing the results into unstructured, unversioned,
 contradiction-blind markdown piles. The two weakness sets are complementary.
@@ -26,7 +26,7 @@ durability.
 So: auto-memory becomes a **fourth ingestion tier** (alongside code, session
 logs, and the planned ADR ingester), and — the other half — the graph
 compiles a view back *into* the file the harness auto-injects. Capture is
-delegated downstream-in; injection is delegated downstream-out; memgraph sits
+delegated downstream-in; injection is delegated downstream-out; claimgraph sits
 in the middle as the consolidator.
 
 ```
@@ -36,13 +36,13 @@ in the middle as the consolidator.
         └───────────────┬────────────────────┘
                         │ MEMORY.md + topic files (distilled notes)
                         ▼
-   memgraph ingest-notes --harness claude-code      ← delta-detect, extract,
+   claim ingest-notes --harness claude-code      ← delta-detect, extract,
                         │                              full conflict machinery
                         ▼
               bi-temporal graph  ──── consolidate (judge, sweep, summaries)
                         │
                         ▼
-   memgraph compile-context  →  managed section of MEMORY.md
+   claim compile-context  →  managed section of MEMORY.md
                         │
                         ▼
         harness injects it into every session (theirs, free)
@@ -53,7 +53,7 @@ in the middle as the consolidator.
 A new verb, mostly an adapter over existing machinery:
 
 ```
-memgraph ingest-notes --harness claude-code [--dir <override>] [--dry-run]
+claim ingest-notes --harness claude-code [--dir <override>] [--dry-run]
 ```
 
 - **Delta detection.** Hash (or mtime) per file, compared against the last
@@ -61,7 +61,7 @@ memgraph ingest-notes --harness claude-code [--dir <override>] [--dry-run]
   Episode ref = file path + revision hash, so provenance answers "which note
   file, at which state, said this."
 - **Extraction.** The same pluggable extractor as `session-extract`
-  (`$MEMGRAPH_LLM_CMD`, default `claude -p`), same known-entity roster prior,
+  (`$CLAIMGRAPH_LLM_CMD`, default `claude -p`), same known-entity roster prior,
   same ambiguity backstop, with a prompt variant tuned for notes rather than
   transcripts (input is already distilled; the job is normalization into
   facts, not mining).
@@ -77,7 +77,7 @@ memgraph ingest-notes --harness claude-code [--dir <override>] [--dry-run]
   handles contradictions (Claude Code's own docs warn that contradictory
   memory files cause arbitrary behavior). The day a note says "switched to
   GraphQL for the admin panel" while `decided-against GraphQL` stands,
-  memgraph flags it instead of letting two contradictory notes coexist in
+  claimgraph flags it instead of letting two contradictory notes coexist in
   the pile.
 
 ### Compaction-tolerance: why reconciliation must NOT apply
@@ -103,7 +103,7 @@ session, unconditionally. That injection slot is programmable — it's just a
 file. So:
 
 ```
-memgraph compile-context --harness claude-code [--budget 25kb]
+claim compile-context --harness claude-code [--budget 25kb]
 ```
 
 emits a compiled "what's currently true" view into a **marker-delimited
@@ -137,8 +137,8 @@ compile → ingest → compile cycle is a fixed point.)
 
 Claude Code hooks make the loop ambient today, no daemon required:
 
-- **SessionEnd** (or Stop): `memgraph ingest-notes --harness claude-code
-  --changed && memgraph compile-context --harness claude-code` — every
+- **SessionEnd** (or Stop): `claim ingest-notes --harness claude-code
+  --changed && claim compile-context --harness claude-code` — every
   session ends with capture + re-compilation; every next session starts with
   the fresh view injected.
 - `consolidate` stays the offline pass (judge, sweep, episode summaries,
@@ -156,7 +156,7 @@ files** — even better provenance to carry into episodes), Windsurf/Devin
 keeps a local memories directory, Cline's memory bank lives in-repo. Each is
 a per-tool, per-machine silo, mutually ignorant of the others.
 
-A `--harness` adapter per format makes memgraph the **cross-harness
+A `--harness` adapter per format makes claimgraph the **cross-harness
 consolidator**: your Claude Code notes and your Codex notes about the same
 repo merge into one bi-temporal graph, entity resolution aligns their
 vocabularies, and the conflict machinery reconciles their disagreements.
@@ -174,10 +174,10 @@ which is itself a tidy argument for the file-based interop story.
 2. **We inherit the model's judgment.** Anthropic explicitly trains models to
    be good at file-based memory curation; that improving capability flows to
    us as better-distilled input rather than competing against us.
-3. **Zero behavior change.** Works for a user who never learns a memgraph
+3. **Zero behavior change.** Works for a user who never learns a claimgraph
    verb — defaults on, notes accumulate, the graph builds itself.
 4. **The weaknesses are perfectly complementary.** Auto-memory has capture
-   but no temporality, no epistemics, no invalidation, no history; memgraph
+   but no temporality, no epistemics, no invalidation, no history; claimgraph
    has all four but no capture. There is no overlap to fight over.
 5. **It's the synthesis doc's "eat their output" strategy, upgraded.** In
    2025 the output to eat was hand-authored CLAUDE.md and ADRs; in 2026 the
@@ -214,7 +214,7 @@ which is itself a tidy argument for the file-based interop story.
    deterministic (no LLM), idempotent; the ingest-side marker exclusion ships
    in the same change.
 3. **The SessionEnd hook** (documented in the skill; optionally a
-   `memgraph hooks install` convenience).
+   `claim hooks install` convenience).
 4. **Codex adapter** — the second harness proves the abstraction (and its
    evidence files exercise richer episode provenance).
 5. **Benchmark extension**: a fixture auto-memory directory in `bench/`

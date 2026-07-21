@@ -1,6 +1,6 @@
 ;; # The ambient loop
 ;;
-;; Nothing in the earlier chapters required the user to type a memgraph
+;; Nothing in the earlier chapters required the user to type a claimgraph
 ;; verb, but it all assumed *someone* writes facts. The ambient loop removes
 ;; that assumption. The harness's own auto-memory (the notes Claude Code and
 ;; Codex maintain about a project) becomes an ingestion tier, and the graph
@@ -16,11 +16,11 @@
 
 (ns ambient
   (:require [babashka.fs :as fs]
-            [memgraph.context :as context]
-            [memgraph.core :as core]
-            [memgraph.harness :as harness]
-            [memgraph.ingest.notes :as notes]
-            [memgraph.store.memory :as mem]))
+            [claimgraph.context :as context]
+            [claimgraph.core :as core]
+            [claimgraph.harness :as harness]
+            [claimgraph.ingest.notes :as notes]
+            [claimgraph.store.memory :as mem]))
 
 ;; ## Harness adapters
 ;;
@@ -35,7 +35,7 @@
     (select-keys [:id :note-glob :inject-file]))
 
 ;; Two harnesses, one graph: notes from both merge through the same entity
-;; resolution and conflict machinery, which makes memgraph a cross-harness
+;; resolution and conflict machinery, which makes claimgraph a cross-harness
 ;; consolidator. Nothing else in the 2026 field survey does this.
 ;;
 ;; ## A graph worth compiling
@@ -85,7 +85,7 @@
 ;; (25 KB default), and idempotent. Point it at a directory standing in for
 ;; `~/.claude/projects/<project>/memory/`:
 
-(def notes-dir (str (fs/create-temp-dir {:prefix "memgraph-book"}) "/memory"))
+(def notes-dir (str (fs/create-temp-dir {:prefix "claimgraph-book"}) "/memory"))
 
 (def result
   (context/compile! store {:harness :claude-code
@@ -171,13 +171,13 @@
 ;; ## The hook that runs it
 ;;
 ;; ```bash
-;; bin/memgraph hooks install            # SessionEnd: ingest-notes, compile-context,
+;; bin/claim hooks install            # SessionEnd: ingest-notes, compile-context,
 ;;                                       #   consolidate when due (default weekly)
-;; bin/memgraph hooks install --coach    # also: a UserPromptSubmit gate that
+;; bin/claim hooks install --coach    # also: a UserPromptSubmit gate that
 ;;                                       #   interrupts only when the graph holds a
 ;;                                       #   standing decision, failure mode, or open
 ;;                                       #   conflict touching the prompt
-;; bin/memgraph hooks run                # the same pass, by hand
+;; bin/claim hooks run                # the same pass, by hand
 ;; ```
 ;;
 ;; Stages report independently: an extractor failure never blocks the

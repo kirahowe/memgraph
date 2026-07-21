@@ -2,16 +2,16 @@
 ;;
 ;; The 2026 evidence says retrieval is where the accuracy points live: a
 ;; 20-point spread across retrieval methods against 3 to 8 across write
-;; strategies. memgraph's answer has four layers, each visible below:
+;; strategies. claimgraph's answer has four layers, each visible below:
 ;; hybrid search with rank fusion, graph traversal (fixed-depth and
 ;; evidence-guided), sufficiency escalation across tiers, and honest
 ;; abstention when the graph does not know.
 
 (ns retrieval
   (:require [babashka.fs :as fs]
-            [memgraph.core :as core]
-            [memgraph.evidence :as evidence]
-            [memgraph.store.memory :as mem]))
+            [claimgraph.core :as core]
+            [claimgraph.evidence :as evidence]
+            [claimgraph.store.memory :as mem]))
 
 (def store (doto (mem/create) (core/seed!)))
 
@@ -49,7 +49,7 @@
 ;; an entity pulls its facts even when no literal matches); and the one-hop
 ;; neighborhood of resolved entities at low weight. Rank fusion by
 ;; reciprocal rank is the classic recipe from Cormack, Clarke, and Buettcher
-;; (SIGIR 2009); the confidence weighting is memgraph's addition.
+;; (SIGIR 2009); the confidence weighting is claimgraph's addition.
 
 (->> (core/search store "billing retries" {})
      :facts
@@ -115,7 +115,7 @@ a timezone mismatch between the scheduler and the bank API."})
 ;; fragment as evidence, attach it to an episode, and ask about a detail no
 ;; fact or summary carries:
 
-(def evidence-dir (str (fs/create-temp-dir {:prefix "memgraph-book"}) "/evidence"))
+(def evidence-dir (str (fs/create-temp-dir {:prefix "claimgraph-book"}) "/evidence"))
 
 (def transcript
   "user: the payout cron failed again
@@ -145,8 +145,8 @@ user: right, cap the fixture amounts")
 ;; confabulation, at the retrieval layer and again at the agent layer.
 ;;
 ;; ```bash
-;; bin/memgraph search "billing retries"
-;; bin/memgraph neighbor --entity billing --depth 2
-;; bin/memgraph neighbor --entity checkout --query "webhook delivery"
-;; bin/memgraph recall "sandbox amount limit"
+;; bin/claim search "billing retries"
+;; bin/claim neighbor --entity billing --depth 2
+;; bin/claim neighbor --entity checkout --query "webhook delivery"
+;; bin/claim recall "sandbox amount limit"
 ;; ```

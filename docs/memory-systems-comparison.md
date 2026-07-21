@@ -1,7 +1,7 @@
 # Memory Systems for AI Agents: A Field Comparison
 
 *Compiled 2026-07-09. Consolidates this repo's research
-(`agent-memory-synthesis.md`, `memgraph-handoff.md`), memgraph's shipped v0
+(`agent-memory-synthesis.md`, `claimgraph-handoff.md`), claimgraph's shipped v0
 (README/TODO), and fresh web research current to July 2026 across three
 sweeps: built-in memory in coding harnesses, dedicated memory platforms, and
 open-source/research systems + benchmarks. Focus is **functional
@@ -82,7 +82,7 @@ vendor-claimed. "Local" = user-owned files; "hosted" = vendor-side store.
 | **OpenAI temporal-KG cookbook** | closed corpus (blueprint) | **auto** pipeline transcripts→statements→triplets | multi-hop planners (task- vs hypothesis-oriented) | bi-temporal triplets/statements | ● full bi-temporal (t_valid/t_invalid + t_created/t_expired) | ● dedicated invalidation agent, `invalidated_by` links | ● **epistemic typing**: Fact/Opinion/Prediction × Static/Dynamic/Atemporal | ○ (invalidate, never delete) | educational notebook, not a library | ○ | ○ |
 | **spec-kit** (~119k★ ⚠, v0.12.x, 30+ agents) | project principles/specs | human-authored via slash-command gauntlet | artifacts loaded as context per phase | markdown in-repo (constitution + specs) | ● git (full history/blame/review) | ◐ human review; invalidation = editing | ○ (authority by convention: constitution is root) | ○ | maximal — files in your repo | ● normal git permissions | ○ (write-once-by-decree) |
 | **git+markdown pile** (baseline) | any | manual | grep + full-file reads | freeform | ◐ git transaction-time only | ○ contradictions accumulate silently | ○ | ○ | maximal | ◐ git | ○ |
-| **memgraph (this repo, v0)** | **codebase** | manual assert + JSONL ingest + **mechanical code ingester** (reconciling) + LLM session-extract (roster-primed, conf-capped) | agent-queried via skill/CLI: facts, BFS neighborhood, FTS, history, **as-of**; direction in/both; no auto-injection | reified-edge KG; 22-predicate controlled vocabulary anchored to PROV-O/SPDX/DOAP/DC + `x/*` staging | ● **bi-temporal modeled** (valid + transaction time), first-class as-of & history queries, non-lossy | ● epistemic-class-derived policy: observations/preferences supersede, **commitments flag** (never auto-resolved); exclusion groups; LLM judge + offline sweep | ● **epistemic classes + per-fact confidence + source-type + episode provenance** | ● **disuse decay as read-time view** (90-day half-life, reinforcement with per-source ceilings, commitments exempt) | local; LMDB live store + committable JSONL dump; two native binaries | ○ single-writer; ACL fields reserved, unenforced | ● Dreaming-style `consolidate`: episode summaries (searchable), judge, sweep, promotion review |
+| **claimgraph (this repo, v0)** | **codebase** | manual assert + JSONL ingest + **mechanical code ingester** (reconciling) + LLM session-extract (roster-primed, conf-capped) | agent-queried via skill/CLI: facts, BFS neighborhood, FTS, history, **as-of**; direction in/both; no auto-injection | reified-edge KG; 22-predicate controlled vocabulary anchored to PROV-O/SPDX/DOAP/DC + `x/*` staging | ● **bi-temporal modeled** (valid + transaction time), first-class as-of & history queries, non-lossy | ● epistemic-class-derived policy: observations/preferences supersede, **commitments flag** (never auto-resolved); exclusion groups; LLM judge + offline sweep | ● **epistemic classes + per-fact confidence + source-type + episode provenance** | ● **disuse decay as read-time view** (90-day half-life, reinforcement with per-source ceilings, commitments exempt) | local; LMDB live store + committable JSONL dump; two native binaries | ○ single-writer; ACL fields reserved, unenforced | ● Dreaming-style `consolidate`: episode summaries (searchable), judge, sweep, promotion review |
 
 ### 2.4 Notable adjacent systems (capsules)
 
@@ -120,19 +120,19 @@ them (not announced, not papered):
 
 | Capability | Who ships it | Who doesn't |
 |---|---|---|
-| **Bi-temporal validity with as-of/history queries** | Zep/Graphiti (filters), **memgraph** (first-class), ctxgraph (early), OpenAI cookbook (blueprint) | every built-in harness, Mem0, Letta, Cognee, supermemory, LangMem |
-| **Epistemic typing** (decided vs observed vs preferred, driving behavior) | **memgraph** (3 classes → conflict policy), OpenAI cookbook (blueprint only) | everyone else; nearest fragments: supermemory's down-weighted "Derives", Zep's typed entities |
-| **Contradiction → conflict surfacing for humans** (not silent resolution) | **memgraph** (commitments flag, never auto-resolved), engram (judge classifies, human reviews) | everyone else silently overwrites, silently coexists, or does nothing |
-| **Retrieval-time validation of memory against ground truth** | **GitHub Copilot only** (repo facts re-validated against current branch) | everyone — memgraph's analogue is write-time reconciliation on `ingest-code`, not read-time |
-| **Mechanical (no-LLM) invalidation from code changes** | **memgraph** (reconciling code ingester), Aider (by recomputation, ephemeral), Copilot (validation gate) | all other persistent systems |
-| **Principled forgetting** | Copilot (28-day unused TTL), **memgraph** (disuse half-life + reinforcement ceilings, commitments exempt), agemem (deterministic eviction), Vertex/AgentCore/LangGraph (plain TTL), Mem0 (soft ranking bias) | Zep (nothing), Letta, Cognee (usage reweighting only), all other built-ins; learned eviction (Memory-R1) not in any product |
-| **Automatic background extraction** | Claude Code, Codex, Copilot, Windsurf, Mem0, Zep, Cognee (opt-in), supermemory, Vertex, AgentCore, ctxgraph | Cursor (removed it), Gemini CLI, Letta (by design), Anthropic memory tool (by design), **memgraph** (session-extract is invoked, not ambient) |
-| **Provenance with citations/evidence** | Copilot (citations), Codex (evidence files), Zep (episodes), **memgraph** (episodes + source-type + confidence), Anthropic memory stores (actor + versions), AgentCore (consistent metadata), memledger (cross-agent derivation chains) | all file-pile systems, Mem0, A-MEM (actively destroys it) |
-| **Chain/derivation confidence propagation** (effective confidence bounded by ancestors, not just the stored number) | **memledger only** (weakest-link: min over the derivation chain) | everyone — memgraph derives effective confidence too, but from **time decay + per-source ceilings**, not chain ancestry; the two are orthogonal |
-| **Consolidation pass** | Codex (dedicated model), Letta (sleep-time agents), supermemory, Cognee (memify), **memgraph** (`consolidate`), Vertex/AgentCore, LangMem | Cursor, Windsurf, Gemini, Copilot, Zep (pipeline-inline only) |
-| **Structured + experiential in one store** | **memgraph** (code facts + decisions/preferences in one graph) — the open problem per OSS Insight's field survey; engram is experiential-only, the code-KG wave is structural-only | essentially everyone |
-| **Team sharing with governance** | Copilot (repo memories + admin controls), Cursor Team rules, Zep ABAC, hyperscalers (IAM), Cognee RBAC, **memledger (Namespace RBAC — the first OSS entrant)** | most local-first systems including memgraph (ACL fields reserved, unenforced) |
-| **Codebase-memory benchmark** | **memgraph** (own seed: shoply fixture, 15 mechanics Qs + LLM layer), a handful of 2026 preprints (SWE Context Bench, Memory Transfer Learning) | no LoCoMo/LongMemEval-equivalent standard exists yet |
+| **Bi-temporal validity with as-of/history queries** | Zep/Graphiti (filters), **claimgraph** (first-class), ctxgraph (early), OpenAI cookbook (blueprint) | every built-in harness, Mem0, Letta, Cognee, supermemory, LangMem |
+| **Epistemic typing** (decided vs observed vs preferred, driving behavior) | **claimgraph** (3 classes → conflict policy), OpenAI cookbook (blueprint only) | everyone else; nearest fragments: supermemory's down-weighted "Derives", Zep's typed entities |
+| **Contradiction → conflict surfacing for humans** (not silent resolution) | **claimgraph** (commitments flag, never auto-resolved), engram (judge classifies, human reviews) | everyone else silently overwrites, silently coexists, or does nothing |
+| **Retrieval-time validation of memory against ground truth** | **GitHub Copilot only** (repo facts re-validated against current branch) | everyone — claimgraph's analogue is write-time reconciliation on `ingest-code`, not read-time |
+| **Mechanical (no-LLM) invalidation from code changes** | **claimgraph** (reconciling code ingester), Aider (by recomputation, ephemeral), Copilot (validation gate) | all other persistent systems |
+| **Principled forgetting** | Copilot (28-day unused TTL), **claimgraph** (disuse half-life + reinforcement ceilings, commitments exempt), agemem (deterministic eviction), Vertex/AgentCore/LangGraph (plain TTL), Mem0 (soft ranking bias) | Zep (nothing), Letta, Cognee (usage reweighting only), all other built-ins; learned eviction (Memory-R1) not in any product |
+| **Automatic background extraction** | Claude Code, Codex, Copilot, Windsurf, Mem0, Zep, Cognee (opt-in), supermemory, Vertex, AgentCore, ctxgraph | Cursor (removed it), Gemini CLI, Letta (by design), Anthropic memory tool (by design), **claimgraph** (session-extract is invoked, not ambient) |
+| **Provenance with citations/evidence** | Copilot (citations), Codex (evidence files), Zep (episodes), **claimgraph** (episodes + source-type + confidence), Anthropic memory stores (actor + versions), AgentCore (consistent metadata), memledger (cross-agent derivation chains) | all file-pile systems, Mem0, A-MEM (actively destroys it) |
+| **Chain/derivation confidence propagation** (effective confidence bounded by ancestors, not just the stored number) | **memledger only** (weakest-link: min over the derivation chain) | everyone — claimgraph derives effective confidence too, but from **time decay + per-source ceilings**, not chain ancestry; the two are orthogonal |
+| **Consolidation pass** | Codex (dedicated model), Letta (sleep-time agents), supermemory, Cognee (memify), **claimgraph** (`consolidate`), Vertex/AgentCore, LangMem | Cursor, Windsurf, Gemini, Copilot, Zep (pipeline-inline only) |
+| **Structured + experiential in one store** | **claimgraph** (code facts + decisions/preferences in one graph) — the open problem per OSS Insight's field survey; engram is experiential-only, the code-KG wave is structural-only | essentially everyone |
+| **Team sharing with governance** | Copilot (repo memories + admin controls), Cursor Team rules, Zep ABAC, hyperscalers (IAM), Cognee RBAC, **memledger (Namespace RBAC — the first OSS entrant)** | most local-first systems including claimgraph (ACL fields reserved, unenforced) |
+| **Codebase-memory benchmark** | **claimgraph** (own seed: shoply fixture, 15 mechanics Qs + LLM layer), a handful of 2026 preprints (SWE Context Bench, Memory Transfer Learning) | no LoCoMo/LongMemEval-equivalent standard exists yet |
 
 **What *nobody* ships**, anywhere in the field:
 
@@ -147,27 +147,27 @@ them (not announced, not papered):
 - Learned eviction in production — Memory-R1 (ACL 2026) exists, no product
   uses it.
 - Read-time validation *plus* temporal history *plus* epistemics in one
-  system. Copilot has the first, memgraph the second and third.
+  system. Copilot has the first, claimgraph the second and third.
 
 -----
 
-## 4. Where memgraph stands
+## 4. Where claimgraph stands
 
 ### Differentiated (nothing else in the survey has the combination)
 
 1. **Epistemic typing driving conflict policy.** The only *shipped* system
    where "we decided against GraphQL" is a different class of thing from "the
    code imports X", with different revision behavior (flag vs supersede). The
-   OpenAI cookbook designed this; memgraph runs it.
+   OpenAI cookbook designed this; claimgraph runs it.
 2. **Bi-temporal + as-of + history as first-class query verbs.** Zep has the
-   model but exposes it as filters over four timestamps; memgraph's
+   model but exposes it as filters over four timestamps; claimgraph's
    `--as-of` / `history` are the direct answer to "what did we believe in
    March, and why did it change."
 3. **The three-way conflict discipline**: mechanical reconciliation (code
    re-ingestion invalidates what the code stopped saying), deterministic
    exclusion groups at write time, LLM judge + sweep offline — with genuine
    contradictions *always* escalated to the human. Copilot silently drops
-   stale facts; Mem0 lets old and new coexist; memgraph is the only one that
+   stale facts; Mem0 lets old and new coexist; claimgraph is the only one that
    treats a contradicted commitment as a question for its owner.
 4. **Forgetting that distinguishes disuse from falsity.** Disuse decay as a
    computed view with reinforcement ceilings (a fact re-derived 500× stays
@@ -176,7 +176,7 @@ them (not announced, not papered):
    unreferenced architectural decision.
 5. **Structural + experiential in one graph.** The 2026 field split cleanly
    into structural code indexes (regenerable, no decisions) and experiential
-   memory (decisions, no code grounding). memgraph's code ingester and
+   memory (decisions, no code grounding). claimgraph's code ingester and
    session extractor write into the same bi-temporal store — the combination
    the field survey called the open problem.
 6. **Standards-anchored vocabulary.** No surveyed system anchors its relation
@@ -184,13 +184,13 @@ them (not announced, not papered):
    claimed it as a differentiator.
 7. **A codebase-memory benchmark at all.** The validation gap the handoff doc
    identified ("no LongMemEval for codebases") remains open field-wide;
-   memgraph's `bb bench` is a seed of exactly that, and the 2026 preprint
+   claimgraph's `bb bench` is a seed of exactly that, and the 2026 preprint
    activity (SWE Context Bench et al.) confirms the gap is real and current.
 
 ### Behind the field
 
 1. **No ambient write path.** Claude Code, Codex, and Copilot extract
-   automatically while you work; memgraph's `session-extract` must be invoked
+   automatically while you work; claimgraph's `session-extract` must be invoked
    (the skill mitigates, but it's judgment-dependent). The premier harnesses
    won the "zero effort" property in 2026.
 2. **No auto-injection read path.** Everything arrives via explicit
@@ -210,7 +210,7 @@ them (not announced, not papered):
    hosted-only, so "we're local-first, governance is someone else's layer" is a
    weaker answer than it was a year ago.
 6. **No independent validation.** Everyone's benchmark numbers are self-run —
-   but memgraph's are too, and it has ~0 users. The credibility bar in this
+   but claimgraph's are too, and it has ~0 users. The credibility bar in this
    field is now high (see §5).
 
 ### Strategic reads, updated for July 2026
@@ -218,7 +218,7 @@ them (not announced, not papered):
 - **The local-owned-codebase niche is still open, but no longer empty.**
   engram (~5k★ in five months) is the closest neighbor: codebase-experiential,
   local, single-binary, conflict-surfacing, subscription-as-judge — it
-  validated four of memgraph's bets simultaneously. It lacks temporality,
+  validated four of claimgraph's bets simultaneously. It lacks temporality,
   epistemics, confidence, decay, and any code grounding. The differentiation
   holds; the "nobody is here" claim doesn't.
 - **The files+agency camp is ascendant and is the real competitor** — not the
@@ -227,17 +227,17 @@ them (not announced, not papered):
   filesystem and let it curate." The markdown pile got a promotion. What that
   camp still cannot answer: "what did we believe in March," "is this a
   decision or an observation," "what contradicts what." Those remain
-  memgraph's case, and Copilot Memory's validation gate is the only
+  claimgraph's case, and Copilot Memory's validation gate is the only
   mass-market acknowledgment that the pile's staleness problem is real.
 - **Mem0's v3 retreat is evidence for conservative scope.** The
   highest-funded player removed graph traversal *and* write-time conflict
   resolution for latency and simplicity. Rich semantics only survive if the
-  write path stays cheap — memgraph's "LLM never on the write path" rule and
+  write path stays cheap — claimgraph's "LLM never on the write path" rule and
   mechanical-first ingestion are the right instincts, confirmed.
 - **Auto-memory is now table stakes in harnesses; interop is the wedge.**
   Every premier harness ships its own silo (local, unshared, unstructured,
   no temporality). None validates, none types, none remembers *why*. The
-  practical positioning: memgraph doesn't compete with auto-memory for
+  practical positioning: claimgraph doesn't compete with auto-memory for
   ambient capture — it's the structured, queryable layer those captures
   should consolidate *into* (the "eat their output" strategy from the
   synthesis doc, now with more outputs to eat).
@@ -264,7 +264,7 @@ claim in this space is read:
   (arXiv 2602.08316), Memory Transfer Learning (arXiv 2604.14004), "Code Isn't
   Memory" (arXiv 2606.22417), a GitHub production A/B (+7 pts PR merge rate
   with memory ⚠), and self-published harness experiments. No standard exists.
-  memgraph's benchmark seed is honest about being one system's fixture; the
+  claimgraph's benchmark seed is honest about being one system's fixture; the
   TODO's "consider generalizing to a multi-system harness only after it proves
   out here" is the right sequencing — a *neutral* codebase-memory benchmark is
   arguably the highest-leverage artifact anyone could ship in this field right
@@ -316,17 +316,17 @@ revises:
 9. **The governed tier got an OSS entrant, and it corroborates four bets.**
    memledger (Apache-2.0 alpha `v0.5.0a0`, `memledger-ai` org, Jul 2026) is a
    trust/governance *layer* between agents and a vector store — a different game
-   than memgraph (multi-agent conversational/RAG memory + compliance, not a
+   than claimgraph (multi-agent conversational/RAG memory + compliance, not a
    codebase temporal KG). It independently arrived at four primitives this doc
    tracks: **provenance chains, effective-confidence-as-derived-not-stored,
    conflict-as-edge (CONFLICTS) rather than overwrite, and forgetting-with-an-
    audit-trail (RTBF cascades).** Same signal engram gave — these are the right
    primitives — now from the governance/RAG direction. Its confidence model
    (weakest-link over the derivation chain) and forgetting model (RTBF cascade)
-   are *orthogonal* mechanisms to memgraph's (time decay + per-source ceilings;
+   are *orthogonal* mechanisms to claimgraph's (time decay + per-source ceilings;
    non-lossy disuse decay), reached for different reasons. What it does **not**
-   have: bi-temporality, as-of/history, or epistemic typing — memgraph's two
-   strongest differentiators survive intact. What it **does** have that memgraph
+   have: bi-temporality, as-of/history, or epistemic typing — claimgraph's two
+   strongest differentiators survive intact. What it **does** have that claimgraph
    doesn't: a shipped OSS governed tier (Namespace RBAC + OpenTelemetry) and an
    attribution-integrity eval (MAI) wired into RAGAS. It is alpha and
    server/Postgres-based, so treat maturity claims with the §5 caution.
@@ -335,8 +335,8 @@ revises:
 
 ## 7. Sources
 
-Repo-internal: `docs/agent-memory-synthesis.md`, `docs/memgraph-handoff.md`,
-`README.md`, `TODO.md`, `.claude/skills/memgraph/SKILL.md`.
+Repo-internal: `docs/agent-memory-synthesis.md`, `docs/claimgraph-handoff.md`,
+`README.md`, `TODO.md`, `.claude/skills/claimgraph/SKILL.md`.
 
 External (fetched 2026-07-09; abbreviated — key primary sources only):
 

@@ -13,27 +13,27 @@
 ;; What this deliberately is not: a CRDT. A CRDT's contract is convergence
 ;; by construction, which means disagreement gets merged away. Two machines
 ;; disagreeing about a fact is exactly the situation a memory system should
-;; surface to a human, and memgraph already has a representation for that:
+;; surface to a human, and claimgraph already has a representation for that:
 ;; an open conflict. Convergence here means both machines converge on the
 ;; same facts, the same identities, and the same visible disagreements.
 
 (ns multiwriter
   (:require [babashka.fs :as fs]
-            [memgraph.core :as core]
-            [memgraph.logic :as logic]
-            [memgraph.oplog :as oplog]
-            [memgraph.store :as store]
-            [memgraph.store.memory :as mem]))
+            [claimgraph.core :as core]
+            [claimgraph.logic :as logic]
+            [claimgraph.oplog :as oplog]
+            [claimgraph.store :as store]
+            [claimgraph.store.memory :as mem]))
 
 ;; ## Two machines
 ;;
 ;; A "machine" is a store, a db path, and a writer identity. The CLI wraps
 ;; every store it opens in the logging decorator exactly like this
-;; (writer identity comes from `$MEMGRAPH_WRITER`, or a generated id kept in
+;; (writer identity comes from `$CLAIMGRAPH_WRITER`, or a generated id kept in
 ;; the oplog directory):
 
 (defn machine [writer-name]
-  (let [db (str (fs/path (fs/create-temp-dir {:prefix "memgraph-book"}) "db"))]
+  (let [db (str (fs/path (fs/create-temp-dir {:prefix "claimgraph-book"}) "db"))]
     (fs/create-dirs (oplog/oplog-dir db))
     (spit (str (fs/path (oplog/oplog-dir db) "writer")) writer-name)
     {:db db
@@ -164,10 +164,10 @@
 
 ;; ```bash
 ;; # machine A                        # machine B
-;; export MEMGRAPH_WRITER=laptop      export MEMGRAPH_WRITER=desktop
-;; bin/memgraph assert ...            bin/memgraph assert ...
+;; export CLAIMGRAPH_WRITER=laptop      export CLAIMGRAPH_WRITER=desktop
+;; bin/claim assert ...            bin/claim assert ...
 ;; # sync <db>.oplog/ however you like (git, rsync, Syncthing), then:
-;; bin/memgraph reconcile
+;; bin/claim reconcile
 ;; ```
 ;;
 ;; On a single machine, concurrent writers serialize through a lease

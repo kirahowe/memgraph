@@ -1,9 +1,9 @@
 # CLI reference
 
-Every command accepts `--db PATH` (default `$MEMGRAPH_DB`, then
-`./.memgraph/db`) and `--pretty`. Output is JSON on stdout; errors are JSON
+Every command accepts `--db PATH` (default `$CLAIMGRAPH_DB`, then
+`./.claimgraph/db`) and `--pretty`. Output is JSON on stdout; errors are JSON
 on stderr with exit code 1, so everything composes with shell tooling and
-the skill alike. `bin/memgraph help` is the authoritative, always-current
+the skill alike. `bin/claim help` is the authoritative, always-current
 version of this list.
 
 ## Store and writes
@@ -71,9 +71,9 @@ version of this list.
 
 | Variable | Meaning |
 |---|---|
-| `MEMGRAPH_DB` | Default store path |
-| `MEMGRAPH_DTLV` | Path to the Datalevin pod binary (otherwise `$PATH`) |
-| `MEMGRAPH_LLM_CMD` | Default extractor and judge command (`claude -p`) |
-| `MEMGRAPH_WRITER` | This machine's writer id for the effect log |
-| `MEMGRAPH_TEST_SKIP_DATALEVIN=1` | Run the test suite pod-free |
-| `MEMGRAPH_BENCH_STORE=memory` | Run benchmark mechanics pod-free |
+| `CLAIMGRAPH_DB` | Default store path |
+| `CLAIMGRAPH_DTLV` | Path to the Datalevin pod binary (otherwise `$PATH`) |
+| `CLAIMGRAPH_LLM_CMD` | Default extractor and judge command (`claude -p`) |
+| `CLAIMGRAPH_WRITER` | This machine's writer id for the effect log |
+| `CLAIMGRAPH_TEST_SKIP_DATALEVIN=1` | Run the test suite pod-free |
+| `CLAIMGRAPH_BENCH_STORE=memory` | Run benchmark mechanics pod-free |

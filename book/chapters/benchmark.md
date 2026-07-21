@@ -2,12 +2,12 @@
 
 No LoCoMo or LongMemEval equivalent exists for codebase memory, and the
 conversational benchmarks stopped being informative in any case. The
-[field survey's credibility-crisis section](https://github.com/kirahowe/memgraph/blob/main/docs/memory-systems-comparison.md#5-benchmarks-and-the-credibility-crisis)
+[field survey's credibility-crisis section](https://github.com/kirahowe/claimgraph/blob/main/docs/memory-systems-comparison.md#5-benchmarks-and-the-credibility-crisis)
 catalogs the damage, with sources: five vendors simultaneously claiming
 state of the art on LoCoMo with self-run numbers, a LoCoMo audit finding
 ground-truth errors in about 6% of its questions, and one project caught
 faking tens of thousands of stars for a "benchmark" that turned out to be
-an unmodified vector store. memgraph's evaluation was
+an unmodified vector store. claimgraph's evaluation was
 designed against that backdrop, with three rules: deterministic scoring
 wherever the claim allows it, measurement focused on the axes where the
 field is weakest and structure should pay, and the headline claim
@@ -69,13 +69,13 @@ whatever its confidence claims.
 ## The ablation: where structure pays, honestly
 
 Following the retrieval-versus-utilization diagnosis, `bb bench ablation`
-holds the fixture fixed and compares three arms: memgraph in full, raw
-transcript chunks with TF-IDF retrieval, and memgraph's facts with
+holds the fixture fixed and compares three arms: claimgraph in full, raw
+transcript chunks with TF-IDF retrieval, and claimgraph's facts with
 retrieval degraded to bare FTS.
 
 | Arm | Score |
 |---|---|
-| memgraph, full | **1.00** |
+| claimgraph, full | **1.00** |
 | raw chunks + TF-IDF | 0.38 |
 | facts + degraded FTS | 0.25 |
 
@@ -94,14 +94,14 @@ well-ranked chunk.
 agent, only the memory arm varies. Seven memory-dependent tasks (including
 a skill-layer abstention probe) run under four arms: no memory, a static
 context file, auto-memory (the agent-maintained markdown pile, the actual
-incumbent), and memgraph's ambient loop. JSON-scored, real `claude -p`
+incumbent), and claimgraph's ambient loop. JSON-scored, real `claude -p`
 calls.
 
 Pilot results (n=7, one run per arm):
 
 | Arm | Score |
 |---|---|
-| memgraph (ambient loop) | **0.71 → 0.86** after the trust model landed |
+| claimgraph (ambient loop) | **0.71 → 0.86** after the trust model landed |
 | no memory | 0.43 |
 | static context file | 0.43, including one confabulation off the stale file |
 | auto-memory | **0.29** |
@@ -109,7 +109,7 @@ Pilot results (n=7, one run per arm):
 Two results matter more than the ranking. First, auto-memory scored *below
 no memory*: the compacted pile plus the planted note actively misled the
 agent, which reproduces the AGENTS.md finding from the incumbent's side.
-Second, the memgraph arm's evolution on the poisoned hosting question is
+Second, the claimgraph arm's evolution on the poisoned hosting question is
 the whole design argument in one number: before the trust model, the agent
 confidently answered Heroku off the planted fact (0.71 includes that miss);
 after the revenant check and the disputed-fact exclusion from

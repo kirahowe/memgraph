@@ -1,12 +1,12 @@
 {:paths ["src" "test" "bench"]
  :tasks
  {test     {:doc  "Run the test suite against both stores"
-            :task (do (require '[memgraph.run-tests])
-                      ((resolve 'memgraph.run-tests/-main)))}
+            :task (do (require '[claimgraph.run-tests])
+                      ((resolve 'claimgraph.run-tests/-main)))}
   bench    {:doc  "Run the memory benchmark (bb bench = deterministic mechanics; bb bench llm = LLM quality layer)"
-            :task (apply (requiring-resolve 'memgraph.bench/-main) *command-line-args*)}
-  memgraph {:doc  "Run the memgraph CLI (bb run memgraph -- <args>)"
-            :task (apply (requiring-resolve 'memgraph.cli/-main) *command-line-args*)}
+            :task (apply (requiring-resolve 'claimgraph.bench/-main) *command-line-args*)}
+  claim    {:doc  "Run the claimgraph CLI (bb run claim -- <args>)"
+            :task (apply (requiring-resolve 'claimgraph.cli/-main) *command-line-args*)}
   book     {:doc  "Build the book: Clay evaluates book/chapters/ against src/, Quarto renders to book/rendered/_book. Needs a JVM and the quarto CLI."
             :task (clojure "-X:book")}
   book:preview {:doc  "Build the book, then serve it with quarto preview"

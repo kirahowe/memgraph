@@ -1,6 +1,6 @@
 # The mental model
 
-Everything in memgraph follows from a handful of commitments. This chapter
+Everything in claimgraph follows from a handful of commitments. This chapter
 states them once, in order, so the executable chapters can move fast.
 
 ## A fact is a claim with a biography
@@ -38,7 +38,7 @@ Valid time (`t-valid` to `t-invalid`) is when a fact was true of the world.
 Transaction time (`recorded-at`) is when the store learned it. Temporal
 databases have kept these apart since the 1990s
 ([Snodgrass](https://www2.cs.arizona.edu/~rts/tdbbook.pdf)); Datomic,
-XTDB, and Graphiti carried the pattern into modern stores, and memgraph
+XTDB, and Graphiti carried the pattern into modern stores, and claimgraph
 models it as explicit attributes so the logic is identical across storage
 backends.
 
@@ -142,7 +142,7 @@ notes under space pressure stops reinforcing a fact; it does not make the
 fact false, and the machinery treats those differently.
 
 Usefulness also counts. Read verbs log which facts they surfaced, and
-`memgraph outcome accepted` resets the disuse clocks of everything retrieved
+`claim outcome accepted` resets the disuse clocks of everything retrieved
 since the last mark. Retrieval in work that was accepted is evidence of
 aliveness. It never raises confidence; only sources do that.
 
@@ -179,7 +179,7 @@ Because each machine appends only to its own file, any file syncer (git,
 rsync, Syncthing) can move logs between machines without a transport
 conflict, the property the local-first literature builds on
 ([Kleppmann et al., 2019](https://www.inkandswitch.com/local-first/)).
-`memgraph reconcile` replays unseen foreign effects in canonical clock
+`claim reconcile` replays unseen foreign effects in canonical clock
 order, matches entity identity by name, collapses claims both writers made
 independently, and queues the contradictions neither writer could see.
 
@@ -187,7 +187,7 @@ This is deliberately not a CRDT
 ([Shapiro et al., 2011](https://hal.inria.fr/inria-00609399)). A CRDT's
 contract is convergence by construction: disagreement is merged away. In a
 memory system, two machines disagreeing about a fact is signal for a human,
-and memgraph already has a first-class representation for that: an open
+and claimgraph already has a first-class representation for that: an open
 conflict. Convergence here means both machines end up seeing the same
 disagreement.
 

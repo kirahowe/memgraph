@@ -2,7 +2,7 @@
 ;;
 ;; This chapter gets a graph running and shows the write and read verbs you
 ;; will use most. It is a real namespace: every form below executes against
-;; the actual memgraph source when the book builds.
+;; the actual claimgraph source when the book builds.
 ;;
 ;; ## Installing the tool
 ;;
@@ -10,22 +10,22 @@
 ;;
 ;; ```bash
 ;; scripts/setup.sh     # installs babashka (bb) and the Datalevin pod (dtlv)
-;; bin/memgraph init    # creates ./.memgraph/db, seeds the 23-predicate vocabulary
+;; bin/claim init    # creates ./.claimgraph/db, seeds the 23-predicate vocabulary
 ;; ```
 ;;
-;; Every command accepts `--db PATH` (default `$MEMGRAPH_DB` or
-;; `./.memgraph/db`) and emits JSON on stdout; add `--pretty` for humans.
+;; Every command accepts `--db PATH` (default `$CLAIMGRAPH_DB` or
+;; `./.claimgraph/db`) and emits JSON on stdout; add `--pretty` for humans.
 ;;
 ;; ## A store, in code
 ;;
 ;; The CLI's Datalevin backend and the in-memory backend used here implement
 ;; the same storage protocol and share every line of decision logic, so what
 ;; you see below is what the CLI does. `seed!` installs the predicate
-;; vocabulary, exactly like `memgraph init`.
+;; vocabulary, exactly like `claim init`.
 
 (ns quickstart
-  (:require [memgraph.core :as core]
-            [memgraph.store.memory :as mem]))
+  (:require [claimgraph.core :as core]
+            [claimgraph.store.memory :as mem]))
 
 (def store
   (doto (mem/create) (core/seed!)))
@@ -45,7 +45,7 @@
 ;; The CLI spelling of the same write:
 ;;
 ;; ```bash
-;; bin/memgraph assert --subject AuthService --predicate prefers \
+;; bin/claim assert --subject AuthService --predicate prefers \
 ;;   --object "Result types over exceptions" --class preference
 ;; ```
 ;;
@@ -119,9 +119,9 @@
      (mapv brief))
 
 ;; ```bash
-;; bin/memgraph facts --entity AuthService --pretty
-;; bin/memgraph facts --entity TokenStore --direction in
-;; bin/memgraph search "GraphQL"
+;; bin/claim facts --entity AuthService --pretty
+;; bin/claim facts --entity TokenStore --direction in
+;; bin/claim search "GraphQL"
 ;; ```
 ;;
 ;; ## The part markdown cannot do
@@ -153,8 +153,8 @@
                     :invalidated (:invalidation-reason f)})))
 
 ;; ```bash
-;; bin/memgraph history --subject AuthService --predicate has-version
-;; bin/memgraph facts --entity AuthService --as-of 2026-03-01   # time travel
+;; bin/claim history --subject AuthService --predicate has-version
+;; bin/claim facts --entity AuthService --as-of 2026-03-01   # time travel
 ;; ```
 ;;
 ;; The next chapters take each of these behaviors apart: the two clocks and

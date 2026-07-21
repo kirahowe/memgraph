@@ -1,5 +1,5 @@
 (ns render
-  "Build the memgraph book: Clay evaluates the chapter namespaces against the
+  "Build the claimgraph book: Clay evaluates the chapter namespaces against the
   real source under src/, writes a Quarto book project, and Quarto renders it
   to HTML. Prose chapters are plain markdown; code chapters are Clojure
   namespaces whose forms actually run at build time, so every example in the
@@ -48,7 +48,7 @@
    ;; Clay's own quarto invocation is skipped; build! runs quarto after
    ;; installing the real index page over Clay's generated stub
    :run-quarto false
-   :book {:title "memgraph: Structured Memory for Coding Agents"}
+   :book {:title "claimgraph: Structured Memory for Coding Agents"}
    :quarto {:format {:html {:theme "cosmo"
                             :toc true
                             :code-overflow "wrap"}}}})

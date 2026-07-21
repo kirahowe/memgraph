@@ -1,6 +1,6 @@
 # Preface {.unnumbered}
 
-memgraph is a memory system for AI coding agents. It stores what an agent
+claimgraph is a memory system for AI coding agents. It stores what an agent
 and its human learn about a codebase (decisions, preferences, dependencies,
 failure modes, history) as a knowledge graph rather than as a pile of
 markdown files. Every fact in the graph knows when it was true, when it was
@@ -24,11 +24,11 @@ The book has three parts.
 
 **Part I** is prose. It explains the problem agent memory is trying to solve,
 what the research literature settled in 2025 and 2026, and the mental model
-behind memgraph's design. If you read nothing else, read the mental model
+behind claimgraph's design. If you read nothing else, read the mental model
 chapter; every other chapter leans on it.
 
 **Part II** is executable. Each chapter is a real Clojure namespace, evaluated
-against the actual memgraph source at book build time by
+against the actual claimgraph source at book build time by
 [Clay](https://scicloj.github.io/clay/). The outputs you see are not
 transcripts pasted into the text; they are produced fresh on every build, so
 if the code drifts from the book, the build breaks. These chapters use the
@@ -50,7 +50,7 @@ bb book:preview    # render, then serve with quarto preview
 ```
 
 The build needs a JVM (the book chapters evaluate on real Clojure, not on
-Babashka) and the [Quarto](https://quarto.org) CLI. The memgraph tool itself
+Babashka) and the [Quarto](https://quarto.org) CLI. The claimgraph tool itself
 needs neither; it runs on two native binaries.
 
 ## Status
@@ -60,5 +60,5 @@ between the July 2026 research round and the writing of this book. The test
 suite holds 119 tests and 757 assertions and runs against both store
 backends. The deterministic benchmark passes 33 of 33 questions and gates
 regressions in CI. The end-task A/B and its numbers appear in the benchmark
-chapter, including the arms where memgraph loses and the one where the best
+chapter, including the arms where claimgraph loses and the one where the best
 available answer is "the graph does not know."

@@ -1,24 +1,24 @@
 ;; # Internals: a functional core you can call
 ;;
-;; memgraph is built as a functional core inside an imperative shell. All
+;; claimgraph is built as a functional core inside an imperative shell. All
 ;; decision logic (conflict policy, temporal filters, retrieval fusion,
-;; admission control, decay, BFS folds) lives in `memgraph.logic` as pure
+;; admission control, decay, BFS folds) lives in `claimgraph.logic` as pure
 ;; functions over plain values: time and fresh ids are passed in, decisions
-;; come back as data. `memgraph.core` is the thin shell that gathers store
+;; come back as data. `claimgraph.core` is the thin shell that gathers store
 ;; reads, asks logic for a decision, and executes the returned plan. Below
 ;; the shell sits a storage protocol with two implementations.
 ;;
 ;; ```
-;; CLI / skill / MCP        src/memgraph/cli.clj, mcp.clj    parsing, JSON I/O
+;; CLI / skill / MCP        src/claimgraph/cli.clj, mcp.clj    parsing, JSON I/O
 ;;         |
-;;    imperative shell      src/memgraph/core.clj            reads -> decision -> plan
+;;    imperative shell      src/claimgraph/core.clj            reads -> decision -> plan
 ;;         |
-;;    functional core       src/memgraph/logic.clj           PURE decisions
-;;         |                src/memgraph/predicates.clj      vocabulary
-;;    Store protocol        src/memgraph/store.clj           the swappable seam
+;;    functional core       src/claimgraph/logic.clj           PURE decisions
+;;         |                src/claimgraph/predicates.clj      vocabulary
+;;    Store protocol        src/claimgraph/store.clj           the swappable seam
 ;;         |
-;;    datalevin backend     src/memgraph/store/datalevin.clj (production; via pod)
-;;    memory backend        src/memgraph/store/memory.clj    (tests, this book)
+;;    datalevin backend     src/claimgraph/store/datalevin.clj (production; via pod)
+;;    memory backend        src/claimgraph/store/memory.clj    (tests, this book)
 ;; ```
 ;;
 ;; The payoff is that the interesting parts of the system can be called
@@ -26,7 +26,7 @@
 ;; that.
 
 (ns internals
-  (:require [memgraph.logic :as logic]))
+  (:require [claimgraph.logic :as logic]))
 
 ;; ## The assertion decision, as data
 ;;
@@ -112,7 +112,7 @@
 
 ;; ## The storage seam
 ;;
-;; The `Store` protocol (`src/memgraph/store.clj`) is the only boundary the
+;; The `Store` protocol (`src/claimgraph/store.clj`) is the only boundary the
 ;; shell talks through: entities, facts, episodes, predicates, narrow
 ;; selects, FTS. The Datalevin implementation speaks Datalog through the
 ;; `dtlv` pod binary; the in-memory implementation is atoms and filters. The

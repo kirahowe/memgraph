@@ -1,5 +1,5 @@
-# Live store (LMDB directory). The committable artifact is `memgraph dump` output.
-.memgraph/
+# Live store (LMDB directory). The committable artifact is `claim dump` output.
+.claimgraph/
 *.dump.jsonl
 bench/results/
 

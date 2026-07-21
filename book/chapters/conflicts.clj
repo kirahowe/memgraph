@@ -1,6 +1,6 @@
 ;; # Conflicts, trust, and forgetting
 ;;
-;; The write path is where memgraph earns its keep. Every assertion passes
+;; The write path is where claimgraph earns its keep. Every assertion passes
 ;; through a pure decision function that weighs the incoming fact against
 ;; what already stands: same-value duplicates reinforce, contradicted
 ;; observations supersede, threatened commitments flag, and two trust
@@ -8,9 +8,9 @@
 ;; each path with real writes.
 
 (ns conflicts
-  (:require [memgraph.core :as core]
-            [memgraph.logic :as logic]
-            [memgraph.store.memory :as mem]))
+  (:require [claimgraph.core :as core]
+            [claimgraph.logic :as logic]
+            [claimgraph.store.memory :as mem]))
 
 (def store (doto (mem/create) (core/seed!)))
 
@@ -62,7 +62,7 @@
 (:open (core/conflicts store))
 
 ;; For conflict classes that do not need a human (duplicates, clean
-;; supersessions), `memgraph judge` classifies pairs offline with an LLM and
+;; supersessions), `claim judge` classifies pairs offline with an LLM and
 ;; `--resolve` acts only on high-confidence verdicts. A `contradicts`
 ;; verdict is never auto-resolved, no matter how confident the judge is.
 ;;
@@ -191,4 +191,4 @@
 ;; Disuse is not falsity. Falsity is handled by invalidation (mechanical,
 ;; from the code ingester's reconciliation, or explicit); disuse only sinks
 ;; a fact's rank until something restates it, retrieves it in accepted work
-;; (`memgraph outcome accepted`), or lets it rest at the floor.
+;; (`claim outcome accepted`), or lets it rest at the floor.

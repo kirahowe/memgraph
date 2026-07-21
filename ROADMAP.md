@@ -19,7 +19,7 @@ The research settled three things that dictate the sequence:
    can both be closed by consuming the harness's auto-memory instead of
    building either** (comparison §4, consuming-auto-memory throughout). That
    is the cheapest high-leverage work available and it makes the system
-   valuable to a user who never learns a memgraph verb. It goes first.
+   valuable to a user who never learns a claimgraph verb. It goes first.
 3. **The eval story is the differentiator, and the bar is *net task
    improvement*, not retrieval metrics** (review §4). The AGENTS.md result
    killed "context helps" as an assumption; the claim has to be demonstrated.
@@ -39,7 +39,7 @@ invalidate-don't-delete, and no LoCoMo/LongMemEval chasing (review §4.3).
 
 ## Phase 1 — Close the ambient loop
 
-Goal: zero-effort capture in, zero-effort injection out, with memgraph as the
+Goal: zero-effort capture in, zero-effort injection out, with claimgraph as the
 consolidator in the middle. Build order and design are already specified in
 `docs/consuming-auto-memory.md` §8.
 
@@ -61,7 +61,7 @@ managed section is excluded from `ingest-notes`, making compile → ingest →
 compile a fixed point. *(consuming-auto-memory §3; closes comparison §4 gap #2)*
 
 ### 3. SessionEnd hook — make the loop ambient ✅ *(2026-07-10)*
-Document the hook in the skill and add a `memgraph hooks install`
+Document the hook in the skill and add a `claim hooks install`
 convenience: every session ends with `ingest-notes && compile-context`;
 `consolidate` runs at lower frequency. *(consuming-auto-memory §4)*
 
@@ -75,7 +75,7 @@ be two-way. *(TODO; consuming-auto-memory §7 "path plumbing")*
 
 ## Phase 2 — Prove it: the benchmark as the differentiator
 
-Goal: measure where the field is weakest and memgraph is strongest
+Goal: measure where the field is weakest and claimgraph is strongest
 (staleness, conflicts, abstention, provenance), then run the headline
 experiment. Plan and rationale: review §4.3; items below keep its numbering
 where relevant. The fixture tiers are cheap, extend the existing `bb bench`
@@ -136,29 +136,29 @@ from the graph, not parametric knowledge. *(review §4.3.9, DialSim)*
 
 ### 12. The headline four-arm end-task A/B ◐ *(2026-07-10 — harness + pilot)*
 Same tasks, same agent, four arms: no memory · static context file ·
-auto-memory (the actual incumbent) · memgraph. Measure task success, tokens,
+auto-memory (the actual incumbent) · claimgraph. Measure task success, tokens,
 wall-clock, and re-litigation counts. Beating "no memory" is table stakes;
 beating auto-memory is the product claim. Even n=20 task pairs says more than
-any retrieval metric. Depends on Phase 1 (the memgraph arm *is* the ambient
+any retrieval metric. Depends on Phase 1 (the claimgraph arm *is* the ambient
 loop). *(review §4.3.1; protocol from the AGENTS.md oral + SWE-ContextBench)*
 *Shipped: `bb bench ab` (7 memory-dependent tasks, JSON-scored, incl. the
 skill-layer abstention probe from #7). Pilot (n=7, one run per arm, claude
--p): memgraph **0.71** · none 0.43 · static 0.43 (1 confabulation off the
+-p): claimgraph **0.71** · none 0.43 · static 0.43 (1 confabulation off the
 stale file) · auto-memory **0.29** (below no-memory — the compacted pile plus
 the planted note actively mislead; the AGENTS.md result reproduced).
-memgraph's two misses: hosting = the poisoning leak reaching an end task
+claimgraph's two misses: hosting = the poisoning leak reaching an end task
 (confidently answered Heroku off the planted fact — issue 23's cost, now
 measured), react-lang = honest abstention. Open: grow to n≈20 task pairs and
 multiple runs for CIs; add a queryable-CLI arm variant (pull-side judgment,
 not just the compiled view).*
-*Rerun after issue 23 landed: memgraph 0.86. The hosting miss became an
+*Rerun after issue 23 landed: claimgraph 0.86. The hosting miss became an
 honest abstention ({"provider": "unknown"}) — the revenant flag plus the
 disputed-fact exclusion from compile-context mean the planted value no
 longer reaches the agent as current truth. The poisoning attack now buys
 uncertainty, not a wrong confident answer.*
 
 ### 13. Retrieval-vs-structure ablation ✅ *(2026-07-10)*
-memgraph full vs raw chunks + BM25/embeddings vs memgraph with degraded
+claimgraph full vs raw chunks + BM25/embeddings vs claimgraph with degraded
 retrieval. Publish where structure pays (history, time-travel, conflicts) and
 where it doesn't (plain recall) — the negative half is what makes the
 positive half credible. Also the baseline data for Phase 4. *(review §4.3.7)*
@@ -258,7 +258,7 @@ lease/lock or append-log-and-reconcile design closes the obvious hole.
 *v2, on the local-first model: every mutation appends to this writer's own
 log in `<db>.oplog/<writer>.jsonl` (hybrid logical clock; the store is a
 materialized view). Append-only per-writer files sync through git/rsync with
-no transport conflicts; `memgraph reconcile` applies foreign effects in
+no transport conflicts; `claim reconcile` applies foreign effects in
 canonical order, unifies entities by name, collapses independent duplicate
 claims non-lossily, and queues cross-writer contradictions for the judge.
 Deliberately not a CRDT: divergence surfaces as open conflicts instead of
@@ -275,7 +275,7 @@ read-decide-write cycle) — batch ingestion at 10k+ facts wants a batched
 assert path before anything else does.*
 
 ### 27. MCP front-end ✅ *(2026-07-10)*
-Thin second front-end over `memgraph.core`. Stays trigger-gated as designed
+Thin second front-end over `claimgraph.core`. Stays trigger-gated as designed
 (handoff §3.4): build when issue 11's latency numbers show cold-start pain or
 per-turn call counts grow — the ambient loop's hook cadence may be what
 finally trips it. *(TODO; comparison §4)*

@@ -7,7 +7,7 @@ agent when to use any of it.
 
 ## The skill: judgment lives outside the store
 
-`.claude/skills/memgraph/SKILL.md` is the usage policy an agent loads: when
+`.claude/skills/claimgraph/SKILL.md` is the usage policy an agent loads: when
 to read (before modifying an entity, before proposing architecture, whenever
 asked "why" or "since when"), when to write (a stated preference
 immediately, a decision as a commitment with `--source-type
@@ -30,7 +30,7 @@ it, which is the one place absence does imply falsity.
 
 **`session-extract`** mines full transcripts (plain text or Claude Code
 session JSONL). The extractor is a pluggable subprocess (`--extractor`,
-`$MEMGRAPH_LLM_CMD`, default `claude -p`), and its prompt carries a bounded
+`$CLAIMGRAPH_LLM_CMD`, default `claude -p`), and its prompt carries a bounded
 roster of known entities with aliases so it aligns synonyms instead of
 coining `AuthSvc` next to `AuthService`. Output is capped at 0.7 and typed
 `session-log`; `--dry-run` shows what would land before anything does.
@@ -75,9 +75,9 @@ Read verbs log which facts they surface into `<db>.retrievals`. After the
 work ships or dies:
 
 ```bash
-bin/memgraph outcome accepted    # everything retrieved since the last mark
+bin/claim outcome accepted    # everything retrieved since the last mark
                                  # gets its disuse clock reset
-bin/memgraph outcome rejected    # nothing reinforced; the facts in play are
+bin/claim outcome rejected    # nothing reinforced; the facts in play are
                                  # reported, and the lesson goes to ingest-failure
 ```
 
@@ -87,7 +87,7 @@ restated would fade identically to one nobody needs.
 
 ## The MCP front-end
 
-`bin/memgraph mcp` serves the graph over stdio JSON-RPC. The store and the
+`bin/claim mcp` serves the graph over stdio JSON-RPC. The store and the
 Datalevin pod open once per session instead of paying the cold start per
 CLI call, which matters once the coach hook runs on every prompt. Seven
 tools: `memory_facts`, `memory_search`, `memory_recall`, `memory_history`,
@@ -95,7 +95,7 @@ tools: `memory_facts`, `memory_search`, `memory_recall`, `memory_history`,
 full conflict machinery). Wire it with:
 
 ```bash
-claude mcp add memgraph -- bin/memgraph mcp
+claude mcp add claimgraph -- bin/claim mcp
 ```
 
 The protocol handler is a pure function from request to response, so the
@@ -109,7 +109,7 @@ x/uses-pattern` auto-registers it with `:testing` status. `predicates
 --usage` shows what is earning its place, and promotion graduates a term:
 
 ```bash
-bin/memgraph predicate promote --from x/uses-pattern --to core/uses-pattern
+bin/claim predicate promote --from x/uses-pattern --to core/uses-pattern
 ```
 
 Promotion registers the stable twin, rewrites every fact onto it (a term

@@ -1,7 +1,7 @@
-# memgraph and the field
+# claimgraph and the field
 
 This chapter condenses the July 2026 field survey
-([`docs/memory-systems-comparison.md`](https://github.com/kirahowe/memgraph/blob/main/docs/memory-systems-comparison.md),
+([`docs/memory-systems-comparison.md`](https://github.com/kirahowe/claimgraph/blob/main/docs/memory-systems-comparison.md),
 which carries the full tables, capsule reviews, and sources). Scores are
 functional: what a system can do for its user, not how it is built. A
 standing caveat travels with every row: benchmark figures in this field are
@@ -12,7 +12,7 @@ Legend: ● shipped and strong, ◐ partial, ○ absent.
 
 | System | Domain | Structure | Bi-temporal history | Contradictions | Epistemics & provenance | Forgetting | Ownership |
 |---|---|---|---|---|---|---|---|
-| **memgraph** | codebase | reified-edge KG, 23-predicate vocabulary | ● first-class as-of and history | ● class-driven policy; commitments flag, never auto-resolved | ● classes + confidence + source trust + episodes + raw evidence | ● disuse half-life, ceilings, commitment exemption | local files, two-way dump |
+| **claimgraph** | codebase | reified-edge KG, 23-predicate vocabulary | ● first-class as-of and history | ● class-driven policy; commitments flag, never auto-resolved | ● classes + confidence + source trust + episodes + raw evidence | ● disuse half-life, ceilings, commitment exemption | local files, two-way dump |
 | Claude Code auto-memory | codebase + user | markdown files | ○ | ○ (docs warn contradictions behave arbitrarily) | ○ timestamps only | ○ size-cap compaction | local |
 | OpenAI Codex Memories | codebase + user | markdown + summary | ○ | ◐ consolidation rewrites, no explicit logic | ◐ evidence links to threads | ○ | local |
 | GitHub Copilot Memory | codebase + user | structured entries + citations | ◐ lifecycle timestamps | ● re-validates against the branch; stale facts silently unused | ● citations; validation as confidence gate | ● 28-day unused TTL | GitHub-hosted, non-portable |
@@ -26,12 +26,12 @@ Legend: ● shipped and strong, ◐ partial, ○ absent.
 | engram | codebase (experiential) | typed notes, SQLite | ◐ timestamps, soft-delete | ● conflict surfacing with judge | ◐ session provenance, no confidence | ○ manual | single binary, git sync |
 | A-MEM (research) | conversational | self-modifying note network | ○ | ◐ rewrites neighbors in place, destroying provenance | ○ | ○ | research code |
 
-## Where memgraph is differentiated
+## Where claimgraph is differentiated
 
 Five combinations that, per the survey, no other shipped system has:
 
 1. **Epistemic typing that drives behavior.** Several systems track *where*
-   a memory came from; none but memgraph types *what kind of claim it is*
+   a memory came from; none but claimgraph types *what kind of claim it is*
    and lets that type decide revision policy. "We decided against GraphQL"
    flagging instead of superseding is the only shipped implementation of
    the pattern the OpenAI temporal-agents cookbook designed.
@@ -41,9 +41,9 @@ Five combinations that, per the survey, no other shipped system has:
    change," have no shipped equivalent.
 3. **Conflict surfacing for humans.** The field's default on contradiction
    is silent: overwrite (files), coexist (vectors), or auto-resolve (LLM
-   comparison). memgraph and engram are the only surveyed systems that
+   comparison). claimgraph and engram are the only surveyed systems that
    treat a genuine contradiction as a question for a person, and only
-   memgraph composes that with temporality and trust.
+   claimgraph composes that with temporality and trust.
 4. **Structural and experiential memory in one store.** 2026 split cleanly
    into regenerable code indexes (no decisions) and experiential stores (no
    code grounding). The code ingester and the session/notes extractors
@@ -51,7 +51,7 @@ Five combinations that, per the survey, no other shipped system has:
    open problem.
 5. **Forgetting that distinguishes disuse from falsity.** Copilot's 28-day
    TTL would happily forget an unreferenced architectural decision;
-   memgraph's decay is a read-time view with reinforcement ceilings and
+   claimgraph's decay is a read-time view with reinforcement ceilings and
    commitment exemption, and falsity is handled by a different mechanism
    entirely (mechanical invalidation).
 
@@ -67,9 +67,9 @@ Honesty section. GitHub Copilot's retrieval-time validation (it "checks
 those citations against the current branch to confirm the information is
 still accurate", per its
 [memory documentation](https://docs.github.com/en/copilot/concepts/agents/copilot-memory))
-has no memgraph equivalent; the code ingester reconciles at write time,
+has no claimgraph equivalent; the code ingester reconciles at write time,
 which is weaker at the moment of use. The governed tier (Copilot, Zep, the hyperscalers)
-ships team sharing and access control that memgraph deliberately defers
+ships team sharing and access control that claimgraph deliberately defers
 (ACL fields are carried but unenforced). The hosted platforms ship
 polished automatic extraction at a scale of engineering the pluggable
 `claude -p` subprocess does not pretend to match. And the survey's two
@@ -85,4 +85,4 @@ territory: a first-class `as_of` parameter on a hosted memory API; memory
 and permissions in the same graph; a portable agent-identity format with
 real adoption; learned eviction in production; and any one system
 combining read-time validation, temporal history, and epistemics. Copilot
-has the first, memgraph the second and third.
+has the first, claimgraph the second and third.

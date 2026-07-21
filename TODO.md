@@ -1,7 +1,7 @@
 # TODO
 
 Remaining roadmap, in rough priority order. Rationale for most items lives in
-`docs/memgraph-handoff.md` §7.
+`docs/claimgraph-handoff.md` §7.
 
 > **Superseded by [`ROADMAP.md`](ROADMAP.md)** (2026-07-09), which sequences
 > these items together with the July 2026 research round
@@ -76,7 +76,7 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       (never delete). Usage counts already exist (`predicates --usage`).
 - [ ] **`load` command.** Restore a store from `dump` JSONL — completes the
       portability loop (dump is currently one-way).
-- [ ] **MCP front-end.** Thin second front-end over `memgraph.core` when
+- [ ] **MCP front-end.** Thin second front-end over `claimgraph.core` when
       cold-start per query hurts or per-turn call counts grow.
 - [ ] **Vector/semantic search.** Datalevin has SIMD vector search; defer
       until FTS + graph retrieval proves insufficient.
@@ -113,7 +113,7 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       registry, bi-temporal reads, BFS, FTS, episodes, JSONL ingest, Clojure
       code ingester, decay, dump, CLI, skill.
 - [x] Functional-core/imperative-shell refactor: pure decision logic in
-      `memgraph.logic`, effects concentrated in `memgraph.core` + store impls.
+      `claimgraph.logic`, effects concentrated in `claimgraph.core` + store impls.
 - [x] Session-log extractor (`session-extract`): pluggable LLM extractor over
       transcripts (plain text or Claude Code session JSONL), dry-run mode,
       confidence capped at 0.7, source-type `:session-log`.
@@ -125,7 +125,7 @@ Remaining roadmap, in rough priority order. Rationale for most items lives in
       classifies open conflict pairs as contradicts / duplicate / supersedes /
       compatible. Report-only by default; `--resolve` acts above a confidence
       gate and never auto-resolves contradictions. Shared LLM machinery in
-      `memgraph.llm` (`$MEMGRAPH_LLM_CMD`).
+      `claimgraph.llm` (`$CLAIMGRAPH_LLM_CMD`).
 - [x] Consolidation (`consolidate`): one offline pass that LLM-summarizes and
       closes open episodes (with a mechanical fallback; summaries become
       full-text searchable), judges open conflicts, decays stale confidence,

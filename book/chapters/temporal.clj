@@ -4,11 +4,11 @@
 ;; is when the fact was true of the world. Transaction time (`recorded-at`)
 ;; is when the store learned it. Keeping them apart is what lets the graph
 ;; record history as it happened, not just as it was discovered, and it is
-;; the chapter of temporal-database practice memgraph carries over wholesale.
+;; the chapter of temporal-database practice claimgraph carries over wholesale.
 
 (ns temporal
-  (:require [memgraph.core :as core]
-            [memgraph.store.memory :as mem]))
+  (:require [claimgraph.core :as core]
+            [claimgraph.store.memory :as mem]))
 
 (def store (doto (mem/create) (core/seed!)))
 
@@ -132,14 +132,14 @@
                     :reason (:invalidation-reason f)})))
 
 ;; ```bash
-;; bin/memgraph assert --subject shoply --predicate deployed-via --object Heroku \
+;; bin/claim assert --subject shoply --predicate deployed-via --object Heroku \
 ;;   --object-kind literal --valid-from 2026-01-01 --valid-until 2026-03-01
-;; bin/memgraph facts --entity shoply --as-of 2026-02-01
-;; bin/memgraph history --subject AuthService --predicate has-version
-;; bin/memgraph invalidate --fact-id <id> --at 2026-06-15 --reason "..."
+;; bin/claim facts --entity shoply --as-of 2026-02-01
+;; bin/claim history --subject AuthService --predicate has-version
+;; bin/claim invalidate --fact-id <id> --at 2026-06-15 --reason "..."
 ;; ```
 ;;
-;; One scope note: memgraph keeps one dimension of correction less than a
+;; One scope note: claimgraph keeps one dimension of correction less than a
 ;; full bi-temporal store like XTDB. It can say what was believed at any
 ;; time and when beliefs changed; it does not audit how beliefs *about the
 ;; past* were themselves revised. That trade was made deliberately, and the

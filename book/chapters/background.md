@@ -82,10 +82,10 @@ influence and destroys provenance as it goes.
 
 ## What the field measured in 2025 and 2026
 
-memgraph's design bets were placed before most of the following results
+claimgraph's design bets were placed before most of the following results
 landed. They are worth stating because they turned design taste into
 measured findings. The full review is in
-[`docs/memagent-2026-review.md`](https://github.com/kirahowe/memgraph/blob/main/docs/memagent-2026-review.md),
+[`docs/memagent-2026-review.md`](https://github.com/kirahowe/claimgraph/blob/main/docs/memagent-2026-review.md),
 written against the ICLR 2026 MemAgents workshop program (70 accepted
 papers).
 
@@ -154,15 +154,15 @@ Two conclusions shaped everything downstream.
 First, the competitor is not hand-written context files; it is auto-memory,
 the agent-maintained markdown the harnesses now ship by default. Its capture
 is genuinely valuable (the model already judged what was worth keeping) and
-its storage is exactly the pile the literature dismantled. So memgraph does
+its storage is exactly the pile the literature dismantled. So claimgraph does
 not compete with ambient capture; it consumes it. The harness's notes become
 an ingestion tier, and the graph compiles its current view back into the
 file the harness injects. Capture is delegated in, injection is delegated
 out, and the structured store sits in the middle as the consolidator. The
-design note is [`docs/consuming-auto-memory.md`](https://github.com/kirahowe/memgraph/blob/main/docs/consuming-auto-memory.md).
+design note is [`docs/consuming-auto-memory.md`](https://github.com/kirahowe/claimgraph/blob/main/docs/consuming-auto-memory.md).
 
 Second, the claim has to be demonstrated as net end-task improvement, not
 retrieval metrics. The AGENTS.md result set the bar: context that merely
 exists does not help. The benchmark chapter takes that protocol (same tasks,
-same agent, memory arms varied) and reports where memgraph wins, where it
+same agent, memory arms varied) and reports where claimgraph wins, where it
 merely ties, and what the failure that remains looks like.

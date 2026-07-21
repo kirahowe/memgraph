@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install memgraph's two native-binary dependencies: babashka (bb) and the
+# Install claimgraph's two native-binary dependencies: babashka (bb) and the
 # Datalevin pod binary (dtlv). Both are GraalVM native images — no JVM.
 set -euo pipefail
 
@@ -31,4 +31,4 @@ if ! command -v dtlv >/dev/null 2>&1; then
 fi
 dtlv help >/dev/null && echo "dtlv ${DTLV_VERSION} OK"
 
-echo "Done. Try: bin/memgraph init"
+echo "Done. Try: bin/claim init"

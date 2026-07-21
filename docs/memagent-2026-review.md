@@ -1,6 +1,6 @@
-# Agent Memory 2026: memgraph vs. the ICLR MemAgents Workshop and the Field
+# Agent Memory 2026: claimgraph vs. the ICLR MemAgents Workshop and the Field
 
-A research review, July 2026. Compares memgraph (this repo) against the
+A research review, July 2026. Compares claimgraph (this repo) against the
 accepted papers of the ICLR 2026 Workshop on Memory for LLM-Based Agentic
 Systems ([MemAgents](https://sites.google.com/view/memagent-iclr26/),
 April 27 2026, Rio de Janeiro — 110+ submissions, **70 accepted papers**,
@@ -29,7 +29,7 @@ how to compress without losing what matters), **evaluation beyond recall**
 hierarchical memory** (at least six graph-memory papers), and **experience →
 procedural knowledge** (reflection, coaching, skill libraries, feedback
 distillation). A full title list is in Appendix B. The papers most relevant
-to memgraph, deep-dived below (★ = oral):
+to claimgraph, deep-dived below (★ = oral):
 
 | Paper | Core idea | Refs |
 |---|---|---|
@@ -73,7 +73,7 @@ against in-place-mutated notes as a memory substrate.
 
 -----
 
-## 2. Where memgraph's bets got independently validated
+## 2. Where claimgraph's bets got independently validated
 
 The 2026 literature converged, from several directions, on positions this
 design took in advance. Worth stating plainly because it means the core is
@@ -81,7 +81,7 @@ sound:
 
 **The incumbent — agent-maintained markdown memory — now has measured
 failure modes on both of its halves.** To be precise about the target:
-memgraph's competitor is not so much hand-authored `AGENTS.md` (which it
+claimgraph's competitor is not so much hand-authored `AGENTS.md` (which it
 will likely obviate in passing) as **auto-memory** — the pattern, now
 shipping in Claude Code, where the agent itself accumulates markdown files
 scattered across memory directories and *updates them in place* over time.
@@ -92,7 +92,7 @@ loaded regardless of the task at hand, delivers zero task-success gain at
 +20% inference cost — and auto-memory is ambient injection too; its files
 load at session start whether or not they bear on the work. What this
 validates is not "structured memory wins" but "**selective, on-demand
-memory** wins over always-injected context." memgraph's query-at-need read
+memory** wins over always-injected context." claimgraph's query-at-need read
 model is on the right side of that line; a hypothetical "dump the graph into
 the prompt" mode would not be.
 
@@ -109,7 +109,7 @@ can't answer "what did we believe before, and why did it change" — it can't
 even show *that* it changed. MINJA lands squarely on this surface as well:
 auto-memory writes whatever sessions contain, with no admission gate, no
 confidence ceiling, and no epistemic distinction between a passing remark
-and a standing decision. memgraph's design answers each point one-for-one:
+and a standing decision. claimgraph's design answers each point one-for-one:
 writes are typed and policy-gated, mutation is supersession with history,
 commitments can't be silently rewritten, and injection is replaced by
 query-at-need. The AGENTS.md result also sets the bar the replacement must
@@ -121,7 +121,7 @@ update-heavy recall.** The SJTU "agent-native memory" study
 workshop paper) benchmarked 12 systems across 11 datasets: no architecture
 dominates, but *structure-aware systems lead on LongMemEval* (Zep's temporal
 KG tops the update-heavy workload) and *trace-preserving memories win
-stateful agentic workloads*. memgraph is both at once. AMA-Bench (workshop
+stateful agentic workloads*. claimgraph is both at once. AMA-Bench (workshop
 oral) adds the agentic-trajectory version of the same finding: systems fail
 from **loss of causality**, and the fix that worked was a causality graph —
 provenance-linked structure, exactly the episode/derived-from machinery here.
@@ -134,7 +134,7 @@ SAGE's novelty gate ([arXiv:2605.30711](https://arxiv.org/abs/2605.30711))
 makes ADD/NOOP deterministic and beats Mem0 while cutting cost 3.4×. A-MAC
 keeps 4 of its 5 admission signals rule-based. TOKI
 ([arXiv:2606.06240](https://arxiv.org/abs/2606.06240)) formalizes bi-temporal
-contradiction resolution as a typed operator algebra. memgraph's architecture
+contradiction resolution as a typed operator algebra. claimgraph's architecture
 — the LLM never runs on the write path, conflicts resolve by epistemic-class
 policy, the judge is offline and gated — is exactly this position, taken
 before these papers landed.
@@ -148,7 +148,7 @@ belief-revision postulates for a versioned graph memory — "commitments never
 silently clobbered" is a practical instance of core-retainment. At the
 workshop itself, the Belief Engine paper showed externalized, rule-updated
 belief state is *more stable and reproducible* than asking the LLM to update
-beliefs — the same argument memgraph makes about conflict policy. And the
+beliefs — the same argument claimgraph makes about conflict policy. And the
 narrative-agents deployment study coined "known-information forgetting" —
 world state right, epistemic state wrong — which is precisely the distinction
 a fact-with-provenance store can answer that a text pile cannot ("what did
@@ -156,7 +156,7 @@ we already establish, and where?").
 
 **Agents don't invent structure — impose the schema.** StructMemEval (oral):
 memory agents solve organization-requiring tasks *only when prompted how to
-organize*. memgraph's controlled 22-predicate vocabulary, did-you-mean
+organize*. claimgraph's controlled 22-predicate vocabulary, did-you-mean
 rejection of novel predicates, and the skill that tells the agent when/how to
 read and write are the "organization hint," made permanent and enforced at
 the API rather than hoped-for in a prompt.
@@ -170,14 +170,14 @@ thesis: file-based guideline memory edited through ordinary file tools
 *works* — for procedural knowledge specifically. The right reading is not
 that files lose to graphs, but that procedural memory tolerates prose files,
 while declarative memory — the part needing invalidation, time travel, and
-conflict semantics — is what demands the graph. memgraph implicitly agrees
+conflict semantics — is what demands the graph. claimgraph implicitly agrees
 (skills hold the judgment, the graph holds the facts), but its procedural
 side is unbuilt (§3.4).
 
 **Localized maintenance beats global reorganization.** The SJTU study's
 cost-performance finding, now with workshop theory behind it: *Agentic Memory
 Should Localize Compression* formalizes interference as retrieval–update
-overlap and argues modular designs localize update effects. memgraph's
+overlap and argues modular designs localize update effects. claimgraph's
 `ingest-code` reconciliation (invalidate only what the analysis stopped
 producing), read-time decay (no batch job), and per-subject-bounded conflict
 sweep are all localized-maintenance designs; GAM's decoupling of encoding
@@ -185,7 +185,7 @@ from consolidation mirrors the episode → consolidate pipeline.
 
 **Forgetting via decay + reinforcement, with typed exemptions.** Learned
 forgetting and consolidation remain the field's acknowledged blind spots;
-production systems mostly lack decay. memgraph's disuse half-life computed at
+production systems mostly lack decay. claimgraph's disuse half-life computed at
 read time, reinforcement toward per-source ceilings, and exemption of
 commitments is ahead of most shipping systems — though see §3.5.
 
@@ -207,7 +207,7 @@ Ordered roughly by how hard the literature argues for each.
 
 TierMem's core argument applies directly to `session-extract`: compression
 (extraction) decisions are made *before* knowing what a future query will
-hinge on. memgraph extracts durable facts from a transcript, records an
+hinge on. claimgraph extracts durable facts from a transcript, records an
 episode summary, and drops the transcript. Anything the extractor didn't deem
 durable is unrecoverable, and no answer can be audited past the episode
 summary. The workshop's *Diagnosing Retrieval vs. Utilization* study makes
@@ -228,7 +228,7 @@ by effective confidence. The *Diagnosing* study's headline is blunt:
 on conversational QA, retrieval method accounts for a 20-point accuracy
 spread while write-time sophistication accounts for 3–8 — under current
 practices, improving retrieval buys more than improving writes. An honest
-reading for memgraph: its write-time structure is *not* justified by plain
+reading for claimgraph: its write-time structure is *not* justified by plain
 recall accuracy (flat stores with good retrieval match it there); it is
 justified by the queries flat stores cannot answer at all — history,
 time-travel, conflict surfacing, provenance. Both halves of that sentence
@@ -241,7 +241,7 @@ semantic + keyword + entity scorers); SIRA-style write-time enrichment
 to semantic search without embeddings); and the escalation pattern now
 validated twice at the workshop — TierMem's sufficiency router and MRAgent's
 active reconstruction (iteratively explore and prune retrieval paths as
-evidence accumulates, +23% at *lower* token cost). memgraph's BFS is a fixed-
+evidence accumulates, +23% at *lower* token cost). claimgraph's BFS is a fixed-
 depth expansion; an evidence-guided walk over the same graph is the upgrade.
 The store-routing paper adds the multi-store version: decide *which* memory
 (graph facts vs episode summaries vs raw pages, per §3.1) a query needs
@@ -255,7 +255,7 @@ with — standing decisions being the obvious trigger.
 `session-extract` gates writes with a confidence cap (0.7) and source typing
 — a fixed prior, not a decision. A-MAC scores each candidate on future
 utility, factual confidence, novelty, recency, and a content-type prior; SAGE
-makes the ADD/NOOP call deterministically from embedding density. memgraph
+makes the ADD/NOOP call deterministically from embedding density. claimgraph
 has the ingredients (novelty ≈ duplicate detection already exists as
 reinforcement; type prior ≈ epistemic class) but doesn't compose them into an
 explicit admit/reject score, and admits everything the extractor produces. A
@@ -273,7 +273,7 @@ to multi-agent *software development* specifically) plus the coding-agent
 literature (MemCoder; subtask-level memory +4.7pp on SWE-bench Verified;
 "Getting Better at Working With You" compiling user corrections into
 enforcement rules) all monetize the same thing: **turning failures and
-feedback into reusable procedural knowledge**. memgraph's failure ingester
+feedback into reusable procedural knowledge**. claimgraph's failure ingester
 and ADR ingester are the top two TODO items and remain unbuilt. The
 literature supplies design guidance: ERL shows heuristics distilled from
 *single* trajectories beat replaying raw trajectories, and Memory Transfer
@@ -293,7 +293,7 @@ of it, so eval must include novel-context cases.
 Reinforcement currently counts *writes* (re-assertion, re-derivation), never
 *usefulness*. The RL thread (Memory-R1 → Mem-T's hindsight credit assignment
 → SWE-MeM's memory-aware GRPO for coding agents) attributes downstream task
-success back to the memory operations that enabled it. memgraph deliberately
+success back to the memory operations that enabled it. claimgraph deliberately
 avoids learned components — defensible for inspectability — but a non-learned
 version of the same signal is available: when a fact was retrieved in a
 session whose work was accepted (vs reverted), that's evidence about the
@@ -312,7 +312,7 @@ MINJA achieves 98.2% injection success into agent memories through ordinary
 interaction — no privileged access — and the 2026 follow-ups ("poison once,
 exploit forever") show one poisoned record can steer behavior indefinitely.
 Its presence on the MemAgents program makes the threat model mainstream.
-memgraph's mitigations are real but incidental: session facts cap at 0.7,
+claimgraph's mitigations are real but incidental: session facts cap at 0.7,
 provenance is kept, commitments can't be silently overwritten, unused facts
 decay. But `session-extract` will faithfully ingest whatever a transcript
 says, and a poisoned "preference" would sit at 0.7 steering the agent until
@@ -334,7 +334,7 @@ obvious hole.
 
 BEAM runs to 10M tokens; AMA-Bench scales synthetic trajectories to arbitrary
 horizons; the shoply fixture is three sessions and three code passes over a
-toy repo. Nothing in memgraph's design obviously breaks at 500k LOC /
+toy repo. Nothing in claimgraph's design obviously breaks at 500k LOC /
 thousands of sessions — candidate-set reads and batched BFS were built for
 exactly this — but there is no measurement, and the per-invocation pod-start
 cost that motivates the MCP front-end will bite long before graph size does.
@@ -377,11 +377,11 @@ memory was true when written; it isn't anymore:
   1,100 base + 376 related tasks mined from real GitHub issue/PR dependency
   links across 51 repos; measures accuracy *and efficiency* gains when prior
   cases are available, sessions deliberately separated. The external
-  benchmark closest to memgraph's thesis.
+  benchmark closest to claimgraph's thesis.
 - **The AGENTS.md study protocol** (this workshop, oral): SWE-bench tasks ±
   context, plus real developer-provided context files, measuring net success
   and cost. This is a ready-made A/B design — swap "context file" for
-  "memgraph skill" and the comparison is direct, including against the
+  "claimgraph skill" and the comparison is direct, including against the
   context-file baseline it just demolished.
 - **AMA-Bench** (this workshop, oral): agentic-trajectory memory with
   rule-based QA at arbitrary horizon.
@@ -395,9 +395,9 @@ memory was true when written; it isn't anymore:
   execution, with novel-context generalization cases.
 - **MemoryAgentBench** ([arXiv:2507.05257](https://arxiv.org/abs/2507.05257)):
   conflict resolution / selective forgetting as a first-class competency
-  (best system: 54% — the field's weak axis, and memgraph's strong one).
+  (best system: 54% — the field's weak axis, and claimgraph's strong one).
 
-Strategic implication: measure where the field is weakest and memgraph is
+Strategic implication: measure where the field is weakest and claimgraph is
 strongest — conflict resolution, staleness, temporal validity, provenance/
 causality — using external protocols where adaptable. A strong showing there
 is differentiated in a way LoCoMo-style recall numbers no longer are
@@ -408,7 +408,7 @@ is differentiated in a way LoCoMo-style recall numbers no longer are
 1. **End-task A/B on real tasks (the only metric that ultimately matters).**
    Adopt the AGENTS.md study's protocol: same tasks, same agent, four arms —
    no memory · static context file · **auto-memory (agent-maintained
-   markdown, in-place updates — the actual incumbent)** · memgraph skill —
+   markdown, in-place updates — the actual incumbent)** · claimgraph skill —
    on a repo with seeded history (SWE-ContextBench's related-task pairs are
    the task source model). Measure task success, tokens, wall-clock, and
    re-litigation counts (standing `decided-against` decisions proposed
@@ -426,7 +426,7 @@ is differentiated in a way LoCoMo-style recall numbers no longer are
    removed, the preference the code stopped following — and score whether
    reads surface current truth, the sweep finds the conflict, and decay
    buries the stale fact before it misleads. The field's 55% axis;
-   memgraph's machinery is built for it and should prove it.
+   claimgraph's machinery is built for it and should prove it.
 3. **Abstention questions.** Questions whose correct answer is "the graph
    doesn't know" — score refusal vs confabulation at the retrieval layer
    (empty vs near-miss garbage) and at the skill layer (does the agent say
@@ -440,7 +440,7 @@ is differentiated in a way LoCoMo-style recall numbers no longer are
    rename and a migration; measure **Recovery@T**: evidence-hit rate at T
    queries after the shift — how many reads/writes until old names resolve,
    conflicts settle, stale facts fade. ShiftBench found method rankings
-   *invert* under shift; memgraph's alias machinery and mechanical
+   *invert* under shift; claimgraph's alias machinery and mechanical
    reconciliation should recover in O(1) passes, which would be a
    differentiating number.
 6. **Scale tier.** Generate synthetic history (hundreds of sessions,
@@ -450,8 +450,8 @@ is differentiated in a way LoCoMo-style recall numbers no longer are
    and wall-clock per consolidate pass) — the metric the Anatomy critique
    says everyone omits.
 7. **Retrieval-vs-structure ablation (the honest one).** Following the
-   *Diagnosing* study: hold the fixture fixed, compare (a) memgraph full,
-   (b) raw transcript chunks + BM25/embedding retrieval, (c) memgraph facts
+   *Diagnosing* study: hold the fixture fixed, compare (a) claimgraph full,
+   (b) raw transcript chunks + BM25/embedding retrieval, (c) claim facts
    with degraded retrieval. Report where structure actually pays (history,
    time-travel, conflicts — expected) and where it doesn't (plain recall —
    expected). Publishing the negative half is what makes the positive half
@@ -459,12 +459,12 @@ is differentiated in a way LoCoMo-style recall numbers no longer are
 8. **Judge stability.** k-run flip rate on the labeled conflict pairs,
    reported next to accuracy (§3.9).
 9. **Metric hygiene from DialSim**: report **latency per read** alongside
-   accuracy (pod cold-start makes this memgraph's honest weak spot today),
+   accuracy (pod cold-start makes this claimgraph's honest weak spot today),
    and add a **contamination control** — fixture entities with deliberately
    swapped names, so a correct answer *must* come from the graph rather than
    the model's parametric knowledge.
 
-What *not* to do: chase LoCoMo/LongMemEval leaderboards. memgraph's domain is
+What *not* to do: chase LoCoMo/LongMemEval leaderboards. claimgraph's domain is
 codebase state, not conversational recall; the saturated benchmarks would
 force the design toward user-profile memory, which is the competitors' turf
 and explicitly out of scope.
@@ -481,7 +481,7 @@ behind it (the AGENTS.md oral, the SJTU study, AMA-Bench's causality finding,
 TOKI, Kumiho, Hindsight, Belief Engine, StructMemEval, the freshness-tracking
 result, the localize-compression position paper). On conflict handling and
 temporal validity specifically — the axis where measured field performance
-sits at ~54–55% — memgraph's machinery is ahead of every production system
+sits at ~54–55% — claimgraph's machinery is ahead of every production system
 surveyed except Zep, and it does epistemic typing Zep doesn't.
 
 **Two workshop results push back on the design, and should be taken
@@ -490,7 +490,7 @@ context *as such* doesn't help and costs money — the value proposition must
 be selective retrieval at the moment of need, never ambient injection, and it
 must be demonstrated as net task improvement, not assumed. And the
 retrieval-vs-utilization diagnosis shows write-time structuring buys little
-on plain recall — memgraph's structure earns its keep only on the queries
+on plain recall — claimgraph's structure earns its keep only on the queries
 flat stores can't answer (history, time-travel, conflicts, provenance), so
 the benchmark must foreground exactly those and honestly ablate the rest.
 
