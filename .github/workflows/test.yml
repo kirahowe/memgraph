@@ -1,0 +1,31 @@
+name: Test
+
+# Runs the test suite on a runner with babashka + the Datalevin pod, so the
+# core-semantics suite exercises BOTH store implementations (memory + datalevin).
+# Complements publish-book.yml, which only builds the book.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The project's own installer, so CI uses the pinned bb + dtlv versions
+      # (and gets covered by every run). Installs to a user dir to avoid sudo.
+      - name: Install babashka + the Datalevin pod (scripts/setup.sh)
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          export PATH="$HOME/.local/bin:$PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          INSTALL_DIR="$HOME/.local/bin" scripts/setup.sh
+
+      - name: Run the test suite (memory + datalevin stores)
+        run: bb test
