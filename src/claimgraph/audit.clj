@@ -167,9 +167,9 @@
   (reduce
    (fn [acc {:keys [path results]}]
      (reduce
-      (fn [a {:keys [status fact candidates superseded quote]}]
+      (fn [a {:keys [status fact candidates superseded quote error-type]}]
         (if (= :error status)
-          (update a :errors inc)
+          (update-in a [:errors (or error-type :other)] (fnil inc 0))
           (let [id (:id fact)
                 summary (judge/fact->summary fact)
                 occ (cond-> {:file path} quote (assoc :quote quote))
@@ -186,8 +186,19 @@
                                                   :candidate (judge/fact->summary c)})
                                          candidates)))))))
       acc results))
-   {:receipts {} :occurrences {} :summaries {} :pairs [] :disagreements [] :errors 0}
+   {:receipts {} :occurrences {} :summaries {} :pairs [] :disagreements [] :errors {}}
    file-reports))
+
+(defn extraction-noise
+  "Inadmissible and ambiguous candidates are counted, not silently dropped
+  (§4) — and assert errors are broken out by type, so 'the extractor coined
+  an unknown predicate' never masquerades as entity ambiguity."
+  [reports errors]
+  (cond-> {:rejected (reduce + 0 (map :rejected reports))
+           :inadmissible (reduce + 0 (map :inadmissible reports))
+           :ambiguous (get errors :ambiguous-entity 0)}
+    (seq (dissoc errors :ambiguous-entity))
+    (assoc :errors (dissoc errors :ambiguous-entity))))
 
 (defn restatements
   "Facts the pile maintains in more than one place, from the occurrence map:
@@ -471,7 +482,8 @@
                                 (select-keys [:status :fact :candidates :superseded])
                                 (assoc :quote quote))
                             (catch clojure.lang.ExceptionInfo e
-                              {:status :error :message (ex-message e) :input fact}))))
+                              {:status :error :message (ex-message e)
+                               :error-type (:type (ex-data e)) :input fact}))))
                       admitted)]
     (core/close-episode s {:episode (:id ep)
                            :summary (str "audit " path "@" hash ": "
@@ -528,6 +540,4 @@
                     :clusters (:candidates (core/entity-duplicates s))
                     :entities (store/-list-entities s {})
                     :code code
-                    :noise {:rejected (reduce + 0 (map :rejected reports))
-                            :inadmissible (reduce + 0 (map :inadmissible reports))
-                            :ambiguous (:errors fold)}})))))
+                    :noise (extraction-noise reports (:errors fold))})))))
