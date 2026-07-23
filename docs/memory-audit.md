@@ -7,6 +7,30 @@ agent Q&A against repo ground truth; (3) **longitudinal** — relitigation /
 repeat-mistake / correction rates from the ambient loop. Build (1) now;
 (2) and (3) get their own notes when picked up.*
 
+***Status: shipped 2026-07-23*** *(`src/claimgraph/audit.clj`,
+`claimgraph.audit-test`, the `audit` CLI verb). Implementation deviations
+from this spec, all in the settle-in-implementation spirit:*
+
+- *On this verb `--dir` means extra scan directories (§2), so the
+  auto-memory notes-dir override flows only through `$CLAIMGRAPH_NOTES_DIR`
+  / `notes-dir` in the project config — not the `--dir` flag the other
+  ambient verbs use for it.*
+- *Name clusters: `core/entity-duplicates` alone can't see the drift the
+  write path already self-healed (a normalized near-match resolves and
+  records an alias instead of minting a duplicate entity), so audit also
+  reports alias clusters — entities the pile referred to by two or more
+  distinct names. Semantic drift with different normalizations (AuthSvc vs
+  AuthService) remains extractor-roster territory and is not mechanically
+  clustered.*
+- *`extraction-noise` reports `{rejected, inadmissible, ambiguous}` —
+  admission-screen rejections are split out from incomplete triples.*
+- *A pile claim that reinforces a code-sourced fact is reported as a
+  restatement with `restates-code: true` (the pile maintaining what the
+  code already says is injection spend for zero information).*
+- *`--pretty` prints the §1 human scorecard (plus per-finding receipts)
+  instead of pretty JSON; the JSON schema is the default stdout output and
+  the `--out` payload.*
+
 -----
 
 ## 1. Purpose and pitch

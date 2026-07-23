@@ -11,6 +11,7 @@ version of this list.
 
 | Command | Does |
 |---|---|
+| `audit` | Consistency scorecard over the agent-memory pile (CLAUDE.md, AGENTS.md, rules files, auto-memory notes), pre-install: contradictions, disagreements, staleness-vs-code, restatements, name clusters, injection bloat — verbatim quote receipts, throwaway in-memory store, nothing written, no dtlv; `--no-code`, `--no-judge`, `--out` |
 | `setup` | One-shot project onboarding, idempotent: store + seed, config persisted, live store gitignored, agent skill installed, ambient loop wired; `--dry-run`, `--mcp` |
 | `config` | Every setting: resolved value, the layer that set it, and the fully resolved paths |
 

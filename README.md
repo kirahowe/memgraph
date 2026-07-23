@@ -62,6 +62,37 @@ pass (`--db`, `--notes-dir`, `--settings-file`, ...) is persisted to
 
 ## Quickstart
 
+### Start with an audit — before you install anything
+
+Every agent-assisted repo accumulates a memory pile — `CLAUDE.md`,
+`AGENTS.md`, rules files, auto-memory notes — and nothing ever checks that
+pile for internal consistency. `claim audit` points claimgraph's conflict
+machinery at it and prints a scorecard:
+
+```
+$ bin/claim audit --pretty
+  87 claims extracted from 4 files
+   7 contradictions   (opposed claims coexisting in the pile)
+  12 disagreements    (same subject, different values — the last one read silently wins)
+   9 stale            (contradicted by what the code says today)
+  23 restatements     (the same fact maintained in more than one place)
+   3 name clusters    (AuthSvc / auth-service / AuthService)
+  41 KB injected per session against a ~25 KB window
+```
+
+It runs entirely in a throwaway in-memory store: nothing is written, the
+real store is never opened, and `dtlv` isn't needed — the only
+prerequisites are `bb` and an extractor command (`claude -p` by default).
+Every finding carries verbatim quote receipts, an LLM judge pass filters
+the false positives (skip it with `--no-judge`), and `--out report.json`
+keeps the full JSON. The staleness-vs-code prong is Clojure-only for now;
+every other finding class works on any repo. The findings are precisely the
+diseases the graph cures: post-adoption, staleness goes to ~zero by
+construction, contradictions become tracked open conflicts, restatement
+becomes reinforcement, and name drift becomes aliases.
+
+### Feed and query the graph
+
 ```bash
 # Mechanical code-analysis pass — no LLM, high confidence, idempotent.
 # This alone replaces most of what people stuff into CLAUDE.md.
@@ -453,7 +484,8 @@ Quarto book. Build it with `bb book` (needs a JVM and the
 - `docs/memory-audit.md` — spec + handoff for `claim audit`: the
   pile-consistency scorecard (contradictions, staleness, restatement, name
   drift, injection bloat) that runs before claimgraph is even installed.
-  First of the three measurement tiers; not yet built.
+  First of the three measurement tiers; shipped (`src/claimgraph/audit.clj`
+  — the header notes the few implementation deviations).
 - `.claude/skills/claimgraph/SKILL.md` — the usage judgment: when an agent should
   consult, write, and how to phrase facts. Generated from
   `resources/claimgraph/SKILL.md` (the template `claim setup` installs into

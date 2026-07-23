@@ -388,6 +388,27 @@
                                                [:command :resolve :min-confidence
                                                 :min-usage])))))))
 
+(defn cmd-audit [{:keys [opts]}]
+  ;; The one verb that must NEVER open the real store: everything runs in a
+  ;; throwaway in-memory store, so no with-store here. On audit, --dir means
+  ;; extra scan directories (spec §2); the auto-memory notes dir override
+  ;; therefore flows only through $CLAIMGRAPH_NOTES_DIR / the config file.
+  (let [opts (config/with-defaults opts [:harness :extractor])
+        audit! (requiring-resolve 'claimgraph.audit/audit!)
+        r (audit! {:project (:project opts)
+                   :harness (:harness opts)
+                   :files (:file opts)
+                   :dirs (:dir opts)
+                   :notes-dir (config/value :notes-dir {})
+                   :no-code (:no-code opts)
+                   :no-judge (:no-judge opts)
+                   :extractor (:extractor opts)})]
+    (when-let [f (:out opts)]
+      (spit f (str (json/generate-string r {:pretty true}) "\n")))
+    (if (:pretty opts)
+      (println ((requiring-resolve 'claimgraph.audit/render-pretty) r))
+      (emit opts r))))
+
 (def ^:private setup-persist-keys
   "Settings a `claim setup` invocation may persist to .claimgraph/config.json —
   only when passed explicitly, so the config file records choices, not defaults."
@@ -461,6 +482,27 @@ Commands:
   config              Show every setting: resolved value, which layer set it
                         (flag/env/config-file/default), and the fully resolved
                         paths (db, notes dir, inject file, settings file, ...)
+  audit               Consistency scorecard over the project's agent-memory
+                        pile (CLAUDE.md, AGENTS.md, .cursorrules, .cursor/rules,
+                        copilot instructions, auto-memory notes) — runs BEFORE
+                        claimgraph is installed: throwaway in-memory store,
+                        nothing written, no dtlv needed (prerequisites: bb +
+                        an extractor). Code facts ingest first, so pile claims
+                        colliding with the code read as staleness; then every
+                        pile claim goes through the full conflict machinery.
+                        Findings: contradictions, silent disagreements, stale
+                        claims, restatements, name clusters, injection bloat —
+                        each with verbatim quote receipts. The judge pass
+                        filters false positives (judged-compatible pairs are
+                        removed); it only reports — audit never resolves.
+                        Exit 0 even with findings: it's a report.
+                        [--project DIR] [--file F]... [--dir D]... (extra
+                        sources beyond the default scan; on this verb --dir
+                        means extra directories, every *.md inside)
+                        [--no-code] (skip the staleness-vs-code prong)
+                        [--no-judge] (skip the LLM verdict pass; report raw)
+                        [--extractor CMD] [--out FILE] (also write the JSON
+                        scorecard to FILE) [--pretty] (human scorecard)
   init                Create the store and seed the predicate vocabulary
                         (setup calls this; use directly for a bare store)
   assert              Assert a fact through validation + conflict resolution
@@ -675,6 +717,9 @@ Commands:
   [{:cmds ["setup"] :fn cmd-setup
     :spec {:coach {:coerce :boolean} :mcp {:coerce :boolean}
            :dry-run {:coerce :boolean} :consolidate-days {:coerce :long}}}
+   {:cmds ["audit"] :fn cmd-audit
+    :spec {:file {:coerce []} :dir {:coerce []}
+           :no-code {:coerce :boolean} :no-judge {:coerce :boolean}}}
    {:cmds ["config"] :fn cmd-config}
    {:cmds ["init"] :fn cmd-init}
    {:cmds ["assert"] :fn cmd-assert :spec {:confidence {:coerce :double}}}

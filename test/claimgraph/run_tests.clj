@@ -1,6 +1,7 @@
 (ns claimgraph.run-tests
   (:require [clojure.test :as t]
             [claimgraph.adr-test]
+            [claimgraph.audit-test]
             [claimgraph.bench-test]
             [claimgraph.coach-test]
             [claimgraph.code-ingest-test]
@@ -35,6 +36,7 @@
                                           'claimgraph.code-ingest-test
                                           'claimgraph.session-test
                                           'claimgraph.notes-test
+                                          'claimgraph.audit-test
                                           'claimgraph.retrieval-test
                                           'claimgraph.coach-test
                                           'claimgraph.outcome-test
