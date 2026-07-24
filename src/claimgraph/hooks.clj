@@ -3,12 +3,18 @@
   a Claude Code SessionEnd hook can call, and an installer that wires it into
   the project's hook configuration.
 
-  `hooks run` = ingest-notes → compile-context → consolidate-if-due. Each
-  stage is attempted independently: an extractor failure (no `claude` on
-  PATH, not authenticated) must never stop the deterministic compile — the
-  next session still deserves the freshest view the graph can produce.
-  Consolidation runs at lower frequency, gated by a sibling stamp file next
-  to the db (default: at most every 7 days).
+  `hooks run` = ingest-code-if-changed → ingest-notes → compile-context →
+  consolidate-if-due. Each stage is attempted independently: an analyzer or
+  extractor failure (no `claude` on PATH, not authenticated) must never
+  stop the deterministic compile — the next session still deserves the
+  freshest view the graph can produce. The code stage runs FIRST (so
+  extraction's entity roster and conflict ground truth are fresh) and is
+  delta-gated on <git-sha>+<dirty-digest> against the newest :code
+  episode's ref — free when nothing changed, reconciling when anything did,
+  including teammates' pulled changes; the `code-ingest` setting
+  (session-end | manual) opts it out. Consolidation runs at lower
+  frequency, gated by a sibling stamp file next to the db (default: at
+  most every 7 days).
 
   `hooks install` merges a SessionEnd entry into the project's hook settings
   (default <project>/.claude/settings.json; overridable via --settings-file /
@@ -49,17 +55,25 @@
             (* days 86400000)))))
 
 (defn run!
-  "The SessionEnd pass: capture what the harness's auto-memory learned,
-  recompile the injected view, consolidate when due. Stages report
-  independently; a failed stage is an :error entry, not an abort.
+  "The SessionEnd pass: refresh code facts when the code moved, capture
+  what the harness's auto-memory learned, recompile the injected view,
+  consolidate when due. Stages report independently; a failed stage is an
+  :error (or :partial) entry, not an abort.
 
   opts: :db (the store path, for the consolidation stamp)
+        :code-ingest (\"session-end\" default | \"manual\")
+        :command-fn :which :analyzers (ingest-code, injectable for tests)
         :harness :project :dir :extractor :extractor-fn (ingest/compile)
         :inject-file (compile-context's write-target override)
         :consolidate-days (default 7; 0 = every run)
         :command :summarize-fn :judge-fn :resolve :min-confidence (consolidate)"
-  [s {:keys [db consolidate-days] :as opts}]
-  (let [ingest (attempt #(notes/ingest! s (select-keys opts [:harness :project :dir :ctx
+  [s {:keys [db consolidate-days code-ingest] :as opts}]
+  (let [code (if (= "manual" (some-> code-ingest name))
+               {:status :skipped :reason "code-ingest is set to manual — run ingest-code yourself"}
+               (attempt #((requiring-resolve 'claimgraph.ingest.code/ingest-if-changed!)
+                          s (assoc (select-keys opts [:command-fn :which :analyzers])
+                                   :dir (:project opts)))))
+        ingest (attempt #(notes/ingest! s (select-keys opts [:harness :project :dir :ctx
                                                              :extractor :extractor-fn
                                                              :evidence-dir])))
         compiled (attempt #(context/compile! s (select-keys opts [:harness :project :dir
@@ -75,8 +89,10 @@
                          (when-not (= :error (:status r))
                            (spit (stamp-path db) (str (.toInstant ^java.util.Date (core/now)))))
                          r))]
-    {:status (if (some #(= :error (:status %)) [ingest compiled consolidated])
+    {:status (if (some #(contains? #{:error :partial} (:status %))
+                       [code ingest compiled consolidated])
                :partial :ok)
+     :ingest-code code
      :ingest-notes ingest
      :compile-context compiled
      :consolidate consolidated}))
@@ -138,5 +154,5 @@
     (cond-> {:status (if added? :installed :updated)
              :settings settings-file
              :command run-cmd
-             :note "every session now ends with ingest-notes + compile-context; consolidate runs when due"}
+             :note "every session now ends with ingest-code-if-changed + ingest-notes + compile-context; consolidate runs when due"}
       coach (assoc :coach-command coach-cmd))))

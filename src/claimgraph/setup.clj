@@ -195,7 +195,15 @@
                  "and starts with its compiled view injected")
             (str "record your first decision: " bin " assert --subject <thing> "
                  "--predicate decided-against --object <alternative> --class commitment")
-            (str "Clojure project? seed the structural layer: " bin " ingest-code --dir src")
+            (let [langs (try (seq (mapv (comp name :id)
+                                        ((requiring-resolve 'claimgraph.ingest.code/detect)
+                                         project)))
+                             (catch Exception _ nil))]
+              (str "seed the structural layer: " bin " ingest-code"
+                   (if langs
+                     (str "  # detected: " (str/join ", " langs)
+                          " (the ambient loop keeps it fresh from here)")
+                     "  # no analyzable sources detected yet — built-in analyzers: clojure, kotlin, typescript; add your own via code-analyzers in .claimgraph/config.json")))
             (str "see every setting, its value, and where it came from: " bin " config")]}))
 
 (defn run!

@@ -35,6 +35,10 @@ would just be session-end noise, so a failed preflight blocks with the fix
 attached). The LLM tiers additionally want an authenticated `claude` CLI
 (or any command via `$CLAIMGRAPH_LLM_CMD`) — that one is optional: without
 it, extraction and judging sit out while every deterministic layer works.
+Likewise optional: the TypeScript/JavaScript code analyzer shells out to a
+pinned dependency-cruiser via `npx`, so it wants Node on PATH — a TS repo
+has that by definition, and without it the analyzer just skips with a hint
+while every other language still ingests.
 
 Or by hand — the same two binaries, then one command in your project:
 
@@ -85,8 +89,10 @@ real store is never opened, and `dtlv` isn't needed — the only
 prerequisites are `bb` and an extractor command (`claude -p` by default).
 Every finding carries verbatim quote receipts, an LLM judge pass filters
 the false positives (skip it with `--no-judge`), and `--out report.json`
-keeps the full JSON. The staleness-vs-code prong is Clojure-only for now;
-every other finding class works on any repo. The findings are precisely the
+keeps the full JSON. The staleness-vs-code prong covers every language the
+analyzer registry detects (Clojure, Kotlin, TypeScript/JavaScript, plus
+anything added via `code-analyzers`) and skips honestly when nothing is
+detected; every other finding class works on any repo. The findings are precisely the
 diseases the graph cures: post-adoption, staleness goes to ~zero by
 construction, contradictions become tracked open conflicts, restatement
 becomes reinforcement, and name drift becomes aliases.
@@ -95,8 +101,9 @@ becomes reinforcement, and name drift becomes aliases.
 
 ```bash
 # Mechanical code-analysis pass — no LLM, high confidence, idempotent.
+# Runs every detected language analyzer (Clojure, Kotlin, TS/JS) in one pass.
 # This alone replaces most of what people stuff into CLAUDE.md.
-bin/claim ingest-code --dir src
+bin/claim ingest-code
 
 # Record a human decision (a commitment — it will never be silently clobbered)
 bin/claim assert --subject api-layer --predicate decided-against \
@@ -140,6 +147,7 @@ layer set it, and the fully resolved paths.
 | LLM command | `--extractor` / `--command` | `CLAIMGRAPH_LLM_CMD` | `claude -p` |
 | raw-evidence dir | `--evidence-dir` | `CLAIMGRAPH_EVIDENCE_DIR` | `<db>.evidence` |
 | consolidation cadence (days) | `--consolidate-days` | `CLAIMGRAPH_CONSOLIDATE_DAYS` | `7` |
+| ambient code refresh | `--code-ingest` | `CLAIMGRAPH_CODE_INGEST` | `session-end` (or `manual`) |
 
 The config file is JSON keyed by the kebab-case setting names
 (`{"harness": "codex", "notes-dir": "/mnt/notes"}`), lives at
@@ -148,6 +156,15 @@ The config file is JSON keyed by the kebab-case setting names
 choices hold for every writer of the repo. Two more env vars sit below the
 settings layer: `$CLAIMGRAPH_DTLV` (path to the pod binary, default from
 `$PATH`) and `$CLAIMGRAPH_WRITER` (this machine's oplog writer id).
+
+One structured setting lives in the config file only (structured values
+don't fit flags/env): a `code-analyzers` map tunes the language-analyzer
+registry by id — override a built-in's command, disable one
+(`"typescript": false`), or add a new language whose command emits the
+interchange format (`{"rust": {"detect": "**.rs", "command": "my-rust-deps
+<roots>"}}` — one JSON object per source unit with `unit`, `file`,
+`requires`, `language`; JSONL or a JSON array). Rust or Python support is a
+ten-line script in your repo, no claimgraph change.
 
 ## How conflicts resolve
 
@@ -269,13 +286,24 @@ CLI / skill front-end        src/claimgraph/cli.clj        arg parsing, JSON in/
 
 ## Ingestion tiers
 
-1. **`ingest-code`** — mechanical Clojure analysis (edamame ns-form parsing, no
-   LLM): `defined-in`, `depends-on`, `written-in` facts at 0.95 confidence
-   under a `:code` episode ref'd to the git SHA. Each pass reconciles the
+1. **`ingest-code`** — mechanical multi-language analysis (no LLM) through a
+   registry of analyzer adapters: Clojure internally via edamame, Kotlin via
+   an internal line parse, TypeScript/JavaScript by shelling to a
+   version-pinned dependency-cruiser via npx (missing tooling skips that
+   analyzer with a hint, never an error), and anything else via the
+   `code-analyzers` config seam. Every detected language runs in one pass
+   under one episode; all analyzers emit the same interchange format (one
+   JSON object per source unit) and feed the same driver: `defined-in`,
+   `depends-on`, `written-in` facts at 0.95 confidence under a `:code`
+   episode ref'd to `<git-sha>[+<dirty-digest>]`. Each pass reconciles the
    store against the code: facts the analysis no longer produces (deleted
-   files, removed requires, dropped namespaces) are invalidated mechanically,
-   unchanged facts no-op, and a namespace that moves files supersedes its old
-   location. The graph tracks the code with no LLM in the loop.
+   files, removed requires, dropped units) are invalidated mechanically,
+   unchanged facts no-op, a unit that moves files supersedes its old
+   location, and imports that can't be resolved locally become
+   external-scoped facts — never a wrong local edge. Reconciliation is
+   language-guarded: a skipped analyzer's facts are exempt, so degradation
+   never invalidates what it didn't look at. The graph tracks the code with
+   no LLM in the loop, and the ambient loop keeps it fresh (see Maintenance).
 2. **`session-extract`** — LLM extraction of durable knowledge (preferences,
    decisions, gotchas, conventions) from a session transcript — plain text or
    Claude Code session JSONL. The extractor is pluggable: defaults to an
@@ -346,10 +374,18 @@ scans never reinforce — only intent writes do.
 - `hooks install` / `hooks run` — the ambient loop, automated: a Claude Code
   SessionEnd hook (wired by `hooks install` into the project's hook settings
   — default `.claude/settings.json`, overridable via `--settings-file`)
-  runs `ingest-notes` → `compile-context` → `consolidate`-when-due (stamp-
-  gated, default weekly) at the end of every session. Stages report
-  independently — an extractor failure never blocks the deterministic
-  recompile. Capture in, injection out, zero behavior change required.
+  runs `ingest-code-if-changed` → `ingest-notes` → `compile-context` →
+  `consolidate`-when-due (stamp-gated, default weekly) at the end of every
+  session. The code stage runs first (so extraction's entity roster and
+  conflict ground truth are fresh) and is delta-gated: every code pass
+  closes its episode with ref `<git-sha>[+<dirty-digest>]`, and the stage
+  skips in milliseconds when the current ref matches the newest code
+  episode's — teammates' pulled changes reconcile mechanically at the next
+  session end, no agent judgment in the loop. `code-ingest: manual` opts a
+  project with an expensive analyzer out; non-git projects always run
+  (matching manual semantics). Stages report independently — an analyzer or
+  extractor failure never blocks the deterministic recompile. Capture in,
+  injection out, zero behavior change required.
 - `compile-context` — the write-back half of the ambient loop
   (`docs/consuming-auto-memory.md`): compiles the graph's current view into a
   marker-delimited managed section at the head of the file the harness
@@ -448,7 +484,7 @@ CLI uses, so an MCP front-end won't invalidate it.
 ## Tests
 
 ```bash
-bb test    # 153 tests / 759 assertions
+bb test    # 168 tests / 994 assertions
 ```
 
 The core-semantics suite runs against BOTH store implementations (the proof of
@@ -490,7 +526,9 @@ Quarto book. Build it with `bb book` (needs a JVM and the
   registry (Kotlin + TypeScript via command-shaped analyzers, a
   bring-your-own-analyzer config seam) and the ambient code-freshness stage
   (delta-gated `ingest-code` in `hooks run`, so teammates' pushed changes
-  reconcile mechanically). Not yet built.
+  reconcile mechanically). Shipped (`src/claimgraph/ingest/code.clj` + the
+  per-language adapter namespaces — the header notes the few
+  implementation deviations).
 - `.claude/skills/claimgraph/SKILL.md` — the usage judgment: when an agent should
   consult, write, and how to phrase facts. Generated from
   `resources/claimgraph/SKILL.md` (the template `claim setup` installs into

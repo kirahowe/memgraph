@@ -3,6 +3,7 @@
   settings maps, install! against a temp project, and the hooks-run pass with
   injected extractor/summarizer fns — no LLM, no subprocess, no real ~/.claude."
   (:require [babashka.fs :as fs]
+            [babashka.process :as p]
             [cheshire.core :as json]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
@@ -81,19 +82,22 @@
 
 (deftest hooks-run-drives-the-whole-loop
   (let [dir (str (fs/create-temp-dir {:prefix "claimgraph-hooks-run-test"}))
+        project (str (fs/create-temp-dir {:prefix "claimgraph-hooks-run-project"}))
         db (str dir "/db")
         s (mem/create)
         _ (core/seed! s)
         response "{\"subject\":\"AuthService\",\"predicate\":\"prefers\",\"object\":\"Result types\",\"class\":\"preference\",\"confidence\":0.9}"
-        base {:db db :dir dir
+        base {:db db :dir dir :project project
               :extractor-fn (fn [_] response)
               :summarize-fn (fn [_] "episode summary")
               :judge-fn (fn [_] "")}]
     (spit (str dir "/MEMORY.md") "# Notes\nprefers Result types\n")
 
-    (testing "one pass: capture, recompile, consolidate (stamp absent = due)"
+    (testing "one pass: code freshness, capture, recompile, consolidate (stamp absent = due)"
       (let [r (hooks/run! s base)]
         (is (= :ok (:status r)))
+        (is (= :skipped (get-in r [:ingest-code :status]))
+            "an empty project has nothing to analyze — reported, not an error")
         (is (= 1 (get-in r [:ingest-notes :files-changed])))
         (is (= :compiled (get-in r [:compile-context :status])))
         (is (= :consolidated (get-in r [:consolidate :status])))
@@ -119,3 +123,79 @@
         (is (= :error (get-in r [:ingest-notes :status])))
         (is (= :compiled (get-in r [:compile-context :status]))
             "capture failing never blocks the deterministic view")))))
+
+;; ---------------------------------------------------------------------------
+;; The ambient code stage (docs/language-adapters.md §5)
+;; ---------------------------------------------------------------------------
+
+(defn- git! [dir & args]
+  (let [{:keys [exit err]} (apply p/sh {:dir (str dir)}
+                                  "git" "-c" "user.email=t@test" "-c" "user.name=t" args)]
+    (when-not (zero? exit)
+      (throw (ex-info (str "git " (first args) " failed: " err) {})))))
+
+(deftest hooks-run-code-stage-is-delta-gated
+  (let [dir (str (fs/create-temp-dir {:prefix "claimgraph-hooks-code-test"}))
+        project (str (fs/create-temp-dir {:prefix "claimgraph-hooks-code-project"}))
+        s (mem/create)
+        _ (core/seed! s)
+        base {:db (str dir "/db") :dir dir :project project
+              :consolidate-days 9999
+              :extractor-fn (fn [_] "")
+              :summarize-fn (fn [_] "episode summary")
+              :judge-fn (fn [_] "")}]
+    (spit (str project "/app.clj") "(ns app.core)")
+    (git! project "init" "-q")
+    (git! project "add" "-A")
+    (git! project "commit" "-q" "-m" "x")
+
+    (testing "first run reconciles the code"
+      (let [r (hooks/run! s base)]
+        (is (= :ok (:status r)))
+        (is (= :ok (get-in r [:ingest-code :status])))
+        (is (pos? (get-in r [:ingest-code :total])))))
+
+    (testing "an unchanged ref skips on the gate"
+      (let [r (hooks/run! s base)]
+        (is (= :skipped (get-in r [:ingest-code :status])))
+        (is (= "code unchanged since the last pass"
+               (get-in r [:ingest-code :reason])))))
+
+    (testing "a moved sha (committed change) re-runs"
+      (spit (str project "/app.clj") "(ns app.core (:require [clojure.set]))")
+      (git! project "add" "-A")
+      (git! project "commit" "-q" "-m" "y")
+      (is (= :ok (get-in (hooks/run! s base) [:ingest-code :status]))))
+
+    (testing "an uncommitted edit (dirty digest) re-runs"
+      (spit (str project "/app.clj") "(ns app.core)")
+      (let [r (hooks/run! s base)]
+        (is (= :ok (get-in r [:ingest-code :status])))
+        (is (str/includes? (get-in r [:ingest-code :ref]) "+")
+            "the ref carries the dirty digest")))
+
+    (testing "code-ingest: manual opts the stage out"
+      (let [r (hooks/run! s (assoc base :code-ingest "manual"))]
+        (is (= :ok (:status r)))
+        (is (= :skipped (get-in r [:ingest-code :status])))
+        (is (str/includes? (get-in r [:ingest-code :reason]) "manual"))))))
+
+(deftest hooks-run-analyzer-failure-is-partial-with-compile-intact
+  (let [dir (str (fs/create-temp-dir {:prefix "claimgraph-hooks-fail-test"}))
+        project (str (fs/create-temp-dir {:prefix "claimgraph-hooks-fail-project"}))
+        s (mem/create)
+        _ (core/seed! s)]
+    (spit (str project "/index.ts") "import './x';")
+    (spit (str dir "/MEMORY.md") "# Notes\n")
+    (let [r (hooks/run! s {:db (str dir "/db") :dir dir :project project
+                           :consolidate-days 9999
+                           :extractor-fn (fn [_] "")
+                           :summarize-fn (fn [_] "episode summary")
+                           :judge-fn (fn [_] "")
+                           :which (fn [_] "npx")
+                           :command-fn (fn [_] (throw (ex-info "tool exploded" {})))})]
+      (is (= :partial (:status r)))
+      (is (= :partial (get-in r [:ingest-code :status])))
+      (is (= :error (:status (first (get-in r [:ingest-code :analyzers])))))
+      (is (= :compiled (get-in r [:compile-context :status]))
+          "an analyzer failure never blocks the deterministic compile"))))

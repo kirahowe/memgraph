@@ -26,7 +26,7 @@
             [claimgraph.context :as context]
             [claimgraph.core :as core]
             [claimgraph.harness :as harness]
-            [claimgraph.ingest.clj-code :as clj-code]
+            [claimgraph.ingest.code :as code]
             [claimgraph.ingest.notes :as notes]
             [claimgraph.ingest.session :as session]
             [claimgraph.judge :as judge]
@@ -444,18 +444,23 @@
 (defn- ingest-code!
   "The staleness prong's ground truth: mechanical code facts land at 0.95 /
   source-type :code BEFORE any pile claim, so a colliding pile claim flags
-  against a code-sourced candidate. Clojure-only; skipping is honest, not
-  silent."
+  against a code-sourced candidate. Languages come from the analyzer
+  registry (walking the project root, plus any code-analyzers config);
+  skipping is honest, not silent."
   [s project no-code]
-  (let [src (fs/path project "src")]
-    (cond
-      no-code {:status :skipped :note "skipped by --no-code"}
-      (not (and (fs/directory? src)
-                (seq (fs/glob src "**.{clj,cljc,cljs,bb}"))))
-      {:status :skipped
-       :note "no src/**/*.clj — the staleness prong is Clojure-only; every other finding class still applies"}
-      :else (let [r (clj-code/ingest! s {:dir (str src) :scope "code"})]
-              {:status :ok :files (:files r) :facts (:total r) :ref (:ref r)}))))
+  (cond
+    no-code {:status :skipped :note "skipped by --no-code"}
+    :else
+    (let [detected (code/detect project)]
+      (if (empty? detected)
+        {:status :skipped
+         :note (str "no analyzable sources detected (analyzers: "
+                    (str/join ", " (map (comp name :id) (code/registry)))
+                    ", plus any code-analyzers config) — every other finding class still applies")}
+        (let [r (code/ingest! s {:dir (str project) :scope "code"})]
+          (cond-> {:status :ok :files (:files r) :facts (:total r) :ref (:ref r)
+                   :languages (mapv (comp name :id) detected)}
+            (:analyzers r) (assoc :analyzers (:analyzers r))))))))
 
 (defn- audit-file!
   "Extract one pile file and push every admitted claim through the full

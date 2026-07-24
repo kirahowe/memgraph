@@ -4,6 +4,7 @@
             [claimgraph.audit-test]
             [claimgraph.bench-test]
             [claimgraph.coach-test]
+            [claimgraph.code-adapters-test]
             [claimgraph.code-ingest-test]
             [claimgraph.config-test]
             [claimgraph.consolidate-test]
@@ -34,6 +35,7 @@
                                           'claimgraph.failure-test
                                           'claimgraph.adr-test
                                           'claimgraph.code-ingest-test
+                                          'claimgraph.code-adapters-test
                                           'claimgraph.session-test
                                           'claimgraph.notes-test
                                           'claimgraph.audit-test

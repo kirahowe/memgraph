@@ -3,7 +3,37 @@
 *Spec + handoff, 2026-07-24. Out of the dogfooding round: two couplings in
 the mechanical code tier, fixed together because they constrain each other —
 what analyzes the code decides what it costs, and what it costs decides
-where it can run ambiently. Not yet built.*
+where it can run ambiently. Shipped 2026-07-24: driver + registry in
+`claimgraph.ingest.code`, per-language analysis in
+`claimgraph.ingest.clj-code` / `kotlin-code` / `ts-code` (clj-code keeps
+back-compat wrappers, so the pre-existing suite and bench pass unchanged).
+Implementation deviations from this spec:*
+
+- *The pinned TS command grew `-p typescript@5` in the same npx prefix
+  (`npx --yes -p typescript@5 -p dependency-cruiser@16 depcruise ...`):
+  dependency-cruiser only enables `.ts` parsing when a supported typescript
+  (>=2 <6) is resolvable next to it, which a bare `npx dependency-cruiser`
+  install is not (and today's latest typescript is 7.x, out of its range).
+  Verified end-to-end against a real bare TS repo.*
+- *Reconciliation is language-guarded, making "a miss never creates a wrong
+  edge" hold for degradation too: candidate facts are attributed to a
+  language through their own `written-in`/`defined-in` chain, and a pass
+  only invalidates facts of languages it actually re-analyzed — so a
+  skipped analyzer (no npx), a failed one, or a `--language`-filtered run
+  can never invalidate facts belonging to files it didn't look at.*
+- *An analyzer `:error` closes the episode with ref suffixed `+partial`,
+  which never satisfies the gate — transient tool failures retry next
+  session. A `:skipped` analyzer (missing tooling) does NOT unmoor the
+  gate: a stray `.ts` file on a machine without npx would otherwise force a
+  full re-analysis every session end; installing the tool takes effect at
+  the next code change. `--language`-filtered runs also mark `+partial` so
+  a manual single-language pass never convinces the gate a full pass ran.*
+- *When detection finds nothing analyzable, `ingest!` reports `:skipped`
+  without opening an episode or invalidating anything (previously an empty
+  dir invalidated every code fact — hazardous for an ambient stage run in
+  the wrong cwd).*
+- *Kotlin's `:detect` is `**.kt` only — including `.kts` would mint junk
+  units for every `build.gradle.kts`.*
 
 -----
 

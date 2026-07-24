@@ -20,13 +20,23 @@ exists and travels with the repo.
 
 ## Ingestion beyond the ambient loop
 
-**`ingest-code`** is the mechanical tier: edamame parses namespace forms (no
-LLM anywhere) and emits `defined-in`, `depends-on`, and `written-in` facts
-at 0.95 confidence under a `:code` episode referenced to the git SHA. Each
-pass reconciles: facts the analysis no longer produces are invalidated
-mechanically, unchanged facts reinforce, and a namespace that moved files
-supersedes its old location. Absence in code means the code stopped saying
-it, which is the one place absence does imply falsity.
+**`ingest-code`** is the mechanical tier: a registry of language analyzers
+(no LLM anywhere) emits `defined-in`, `depends-on`, and `written-in` facts
+at 0.95 confidence under a `:code` episode referenced to
+`<git-sha>[+<dirty-digest>]`. Clojure is parsed internally with edamame,
+Kotlin with an internal line parse, TypeScript/JavaScript by shelling to a
+version-pinned dependency-cruiser (missing npx skips that analyzer with a
+hint), and a `code-analyzers` map in the project config overrides, disables,
+or adds analyzers — every analyzer emits the same per-unit interchange
+format and feeds the same driver. Each pass reconciles: facts the analysis
+no longer produces are invalidated mechanically, unchanged facts reinforce,
+and a unit that moved files supersedes its old location. Absence in code
+means the code stopped saying it, which is the one place absence does imply
+falsity — guarded per language, so an analyzer that didn't run never
+invalidates what it didn't look at. The same pass runs ambiently as the
+first stage of `hooks run`, delta-gated on the episode ref, so the graph
+tracks the code (including teammates' pulled changes) with nobody in the
+loop.
 
 **`session-extract`** mines full transcripts (plain text or Claude Code
 session JSONL). The extractor is a pluggable subprocess (`--extractor`,

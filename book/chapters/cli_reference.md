@@ -50,7 +50,7 @@ version of this list.
 
 | Command | Does |
 |---|---|
-| `ingest-code` | Mechanical Clojure analysis; reconciling, no LLM, 0.95 confidence |
+| `ingest-code` | Mechanical multi-language analysis through the adapter registry (Clojure via edamame, Kotlin via line parse, TS/JS via pinned dependency-cruiser, `code-analyzers` config for your own); reconciling, no LLM, 0.95 confidence; `--language` filters to one analyzer; missing tooling skips with a hint |
 | `session-extract` | LLM extraction from transcripts; capped 0.7, `--dry-run`, pluggable `--extractor` |
 | `ingest-notes` | The ambient tier: harness auto-memory, delta-detected, capped 0.65, never commitments |
 | `ingest-adr` | Mechanical decision-record parsing at full authority |
@@ -71,7 +71,7 @@ version of this list.
 | `judge` | Classify open conflicts; `--resolve` acts on high-confidence verdicts, never on contradictions; `--sweep` generates candidates |
 | `outcome` | `accepted` reinforces everything retrieved since the last mark; `rejected` reports it |
 | `compile-context` | Write the graph's current view into the harness's injection file |
-| `hooks install / run` | Wire and run the ambient SessionEnd loop (`--coach` adds the prompt-time gate) |
+| `hooks install / run` | Wire and run the ambient SessionEnd loop: `ingest-code-if-changed` (delta-gated on `<git-sha>+<dirty-digest>`; `--code-ingest manual` opts out) → `ingest-notes` → `compile-context` → consolidate-when-due (`--coach` adds the prompt-time gate) |
 | `dump` / `load` | JSONL export and exact restore (the committable, portable artifact) |
 | `reconcile` | Apply other writers' effect logs; idempotent |
 | `mcp` | Serve the graph over MCP stdio |
@@ -83,6 +83,7 @@ version of this list.
 | `CLAIMGRAPH_DB` | Default store path |
 | `CLAIMGRAPH_DTLV` | Path to the Datalevin pod binary (otherwise `$PATH`) |
 | `CLAIMGRAPH_LLM_CMD` | Default extractor and judge command (`claude -p`) |
+| `CLAIMGRAPH_CODE_INGEST` | The ambient code stage: `session-end` (default) or `manual` |
 | `CLAIMGRAPH_WRITER` | This machine's writer id for the effect log |
 | `CLAIMGRAPH_TEST_SKIP_DATALEVIN=1` | Run the test suite pod-free |
 | `CLAIMGRAPH_BENCH_STORE=memory` | Run benchmark mechanics pod-free |

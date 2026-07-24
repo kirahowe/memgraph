@@ -40,7 +40,9 @@
                   :desc "Content-addressed raw-evidence store. Default: <db>.evidence."}
    :consolidate-days {:flag "--consolidate-days" :env "CLAIMGRAPH_CONSOLIDATE_DAYS"
                       :default 7 :coerce :long
-                      :desc "Consolidation cadence for hooks run, in days (0 = every run)."}))
+                      :desc "Consolidation cadence for hooks run, in days (0 = every run)."}
+   :code-ingest {:flag "--code-ingest" :env "CLAIMGRAPH_CODE_INGEST" :default "session-end"
+                 :desc "Whether hooks run refreshes code facts as its first stage (session-end | manual). Delta-gated either way; manual opts a project with an expensive analyzer out of the ambient pass. The code-analyzers map (config-file only) tunes which analyzers run."}))
 
 ;; ---------------------------------------------------------------------------
 ;; Pure: resolution

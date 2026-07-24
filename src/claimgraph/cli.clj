@@ -230,9 +230,9 @@
         (emit opts (core/ingest s (select-keys opts [:episode :source-type :ref]) facts))))))
 
 (defn cmd-ingest-code [{:keys [opts]}]
-  (let [ingest-code (requiring-resolve 'claimgraph.ingest.clj-code/ingest!)]
+  (let [ingest-code (requiring-resolve 'claimgraph.ingest.code/ingest!)]
     (with-write-store opts
-      (fn [s] (emit opts (ingest-code s (select-keys opts [:dir :scope])))))))
+      (fn [s] (emit opts (ingest-code s (select-keys opts [:dir :scope :language])))))))
 
 (defn cmd-session-extract [{:keys [opts]}]
   (let [opts (config/with-defaults opts [:extractor])
@@ -325,14 +325,14 @@
 
 (defn cmd-hooks-run [{:keys [opts]}]
   (let [opts (-> (config/with-defaults opts [:harness :notes-dir :inject-file
-                                             :extractor :consolidate-days])
+                                             :extractor :consolidate-days :code-ingest])
                  llm-command-opts)
         run (requiring-resolve 'claimgraph.hooks/run!)]
     (with-write-store opts
       (fn [s]
         (emit opts (run s (assoc (select-keys opts [:harness :project :dir :inject-file
                                                     :extractor :consolidate-days :command
-                                                    :resolve :min-confidence])
+                                                    :resolve :min-confidence :code-ingest])
                                  :db (db-path opts)
                                  :evidence-dir (evidence-dir opts))))))))
 
@@ -487,7 +487,8 @@ Commands:
                         copilot instructions, auto-memory notes) — runs BEFORE
                         claimgraph is installed: throwaway in-memory store,
                         nothing written, no dtlv needed (prerequisites: bb +
-                        an extractor). Code facts ingest first, so pile claims
+                        an extractor). Code facts ingest first (every language
+                        the analyzer registry detects), so pile claims
                         colliding with the code read as staleness; then every
                         pile claim goes through the full conflict machinery.
                         Findings: contradictions, silent disagreements, stale
@@ -593,7 +594,24 @@ Commands:
   episode list
   ingest              Batch assert JSONL (one fact per line): --file F | stdin
                         [--episode ID | --source-type T --ref R]
-  ingest-code         Mechanical Clojure code analysis: [--dir src] [--scope code]
+  ingest-code         Mechanical code analysis through the language-adapter
+                        registry (no LLM): Clojure (edamame, built-in),
+                        Kotlin (line parse, built-in), TypeScript/JavaScript
+                        (dependency-cruiser via npx, version-pinned). Walks
+                        the project root, runs every detected analyzer in
+                        one pass under one episode; missing tooling (no npx)
+                        skips that analyzer with a hint, never an error.
+                        Unresolvable imports become external-scoped facts —
+                        never a wrong local edge. Bring your own analyzer:
+                        a code-analyzers map in .claimgraph/config.json
+                        (config-file only) overrides a built-in's command,
+                        disables one (\"typescript\": false), or adds a
+                        language whose command emits the interchange format
+                        (one JSON object per unit: unit, file, requires,
+                        language; JSONL or array).
+                        [--dir .] [--scope code] [--language clojure]
+                        (--language filters to one analyzer; reconciliation
+                        stays scoped to it)
   session-extract     LLM-extract durable facts from a session transcript
                         (plain text or Claude Code session JSONL): --file F | stdin
                         [--ref ID] [--dry-run] [--extractor \"claude -p\"]
@@ -658,12 +676,21 @@ Commands:
                         [--bin claim]
                         --coach also wires a UserPromptSubmit hook running
                         the gated push (see coach).
-  hooks run           The SessionEnd pass: ingest-notes, compile-context,
-                        and consolidate when due (stamp-gated, default every
-                        7 days; 0 = always). Stages report independently —
-                        an extractor failure never blocks the deterministic
+  hooks run           The SessionEnd pass: ingest-code-if-changed (first,
+                        so extraction's entity roster and conflict ground
+                        truth are fresh — delta-gated on
+                        <git-sha>+<dirty-digest> against the last :code
+                        episode, so it's free when nothing changed and
+                        reconciles when anything did, including teammates'
+                        pulled changes; non-git projects always run),
+                        ingest-notes, compile-context, and consolidate when
+                        due (stamp-gated, default every 7 days; 0 = always).
+                        Stages report independently — an analyzer or
+                        extractor failure never blocks the deterministic
                         recompile. [--harness claude-code] [--project DIR]
                         [--dir NOTES_DIR] [--inject-file F]
+                        [--code-ingest session-end|manual] (manual opts the
+                        code stage out of the ambient loop)
                         [--consolidate-days 7] [--extractor CMD]
                         [--command CMD] [--resolve] [--min-confidence 0.8]
   outcome             Close the loop on retrieved facts: claim outcome

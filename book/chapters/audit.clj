@@ -186,7 +186,9 @@
 ;; ```
 ;;
 ;; Exit code is 0 even with findings — it is a report, not a gate. The
-;; staleness prong is Clojure-only (the code ingester is); every other
+;; staleness prong covers every language the analyzer registry detects
+;; (Clojure, Kotlin, TypeScript/JavaScript, plus `code-analyzers` config
+;; additions) and skips honestly when nothing is; every other
 ;; finding class works on any repo. And the scorecard's findings are
 ;; precisely the diseases the rest of this book cures: post-adoption,
 ;; staleness goes to about zero by construction (code reconciliation
