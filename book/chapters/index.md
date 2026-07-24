@@ -12,11 +12,8 @@ why did it change."
 
 The system is a Babashka CLI backed by [Datalevin](https://github.com/juji-io/datalevin),
 wrapped in an agent skill, an MCP server, and a set of hooks that let it run
-with zero effort on the user's part. It was designed and built in this
-repository between 2025 and 2026, alongside a research program that surveyed
-the field, compared it to roughly forty other memory systems, and benchmarked
-the result. This book is the complete account: the reasoning, the design, the
-working system, and the measurements.
+with zero effort on the user's part. This book covers the project's background
+and rationale, its design, the benchmarks, and how to use it.
 
 ## How to read this book
 
@@ -25,16 +22,12 @@ The book has three parts.
 **Part I — Foundations** is prose. It explains the problem agent memory is
 trying to solve, what the research literature settled in 2025 and 2026, and the
 mental model behind claimgraph's design. If you read nothing else, read the
-mental model chapter; every other chapter leans on it.
+mental model chapter. It's the foundation for understanding everything else.
 
-**Part II — The System in Practice** is executable. Each chapter is a real
-Clojure namespace, evaluated against the actual claimgraph source at book build
-time by [Clay](https://scicloj.github.io/clay/). The outputs you see are not
-transcripts pasted into the text; they are produced fresh on every build, so
-if the code drifts from the book, the build breaks. These chapters use the
-in-memory store backend, which shares every line of decision logic with the
-Datalevin backend through a storage protocol. The CLI equivalents appear
-alongside as shell blocks.
+**Part II — The System in Practice** is a hands-on tour of the working system,
+one behavior per chapter. These chapters use the in-memory store backend, which
+shares every line of decision logic with the Datalevin backend through a
+storage protocol. The CLI equivalents appear alongside as shell blocks.
 
 **Part III — Operations and Reference** is operational: advanced usage, the
 benchmark and its results, a comparison with the other memory systems in the
@@ -55,12 +48,8 @@ needs neither; it runs on two native binaries.
 
 ## Status
 
-Everything described here is implemented and tested: 28 roadmap items landed
-between the July 2026 research round and the writing of this book, plus
-`claim audit` — the pre-install consistency scorecard over a repo's
-existing memory pile, first of the measurement tiers planned around the
-dogfooding round. The test suite holds 153 tests and 759 assertions and
-runs against both store backends. The deterministic benchmark passes 33 of
-33 questions and gates regressions in CI. The end-task A/B and its numbers
-appear in the benchmark chapter, including the arms where claimgraph loses
-and the one where the best available answer is "the graph does not know."
+Everything described here is implemented and tested. There is also a new
+benchmark included in the product, with 33 questions about a made-up project.
+All pass and gate regressions in CI. The end-task A/B and its numbers appear
+in the benchmark chapter, including the arms where claimgraph loses and the
+one where the best available answer is "the graph does not know."
