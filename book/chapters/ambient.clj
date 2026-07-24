@@ -186,3 +186,7 @@
 ;; always-on injection is the pattern the AGENTS.md study measured into the
 ;; ground, and the mutating-step evidence (SABER) says the moment worth
 ;; interrupting is the one right before a write.
+;;
+;; The next chapter turns this machinery around: the same conflict engine,
+;; pointed at the memory pile a repo already has — before claimgraph is
+;; installed at all.

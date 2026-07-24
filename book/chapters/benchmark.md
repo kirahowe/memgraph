@@ -132,6 +132,22 @@ evaluation-critique literature says everyone omits. Nothing structural
 breaks; the first real ceiling is per-fact write latency during bulk
 ingestion.
 
+## The measurement tiers around it
+
+The benchmark measures claimgraph against alternatives on a fixture. A
+second axis of measurement, planned around the dogfooding round, measures
+*the user's own repo*: (1) `claim audit`, shipped — the instant, mechanical
+consistency scorecard over the existing memory pile (the audit chapter),
+which quantifies the "before" state without installing anything; (2) an
+exam tier — before/after agent Q&A against repo ground truth; and (3) a
+longitudinal tier — relitigation, repeat-mistake, and correction rates from
+the ambient loop. Tiers two and three are specified in
+[`docs/memory-audit.md`](https://github.com/kirahowe/claimgraph/blob/main/docs/memory-audit.md)'s
+header note and get their own design notes when picked up. Audit counts
+wobble run-to-run with a live extractor (accepted for a diagnostic; the
+quote receipts keep it honest), which is why it stays a report and CI
+gating on it is deferred until the variance is understood.
+
 ## What this benchmark is not
 
 It is one system's fixture, self-run, at pilot scale, and the numbers above

@@ -56,9 +56,11 @@ needs neither; it runs on two native binaries.
 ## Status
 
 Everything described here is implemented and tested: 28 roadmap items landed
-between the July 2026 research round and the writing of this book. The test
-suite holds 119 tests and 757 assertions and runs against both store
-backends. The deterministic benchmark passes 33 of 33 questions and gates
-regressions in CI. The end-task A/B and its numbers appear in the benchmark
-chapter, including the arms where claimgraph loses and the one where the best
-available answer is "the graph does not know."
+between the July 2026 research round and the writing of this book, plus
+`claim audit` — the pre-install consistency scorecard over a repo's
+existing memory pile, first of the measurement tiers planned around the
+dogfooding round. The test suite holds 153 tests and 759 assertions and
+runs against both store backends. The deterministic benchmark passes 33 of
+33 questions and gates regressions in CI. The end-task A/B and its numbers
+appear in the benchmark chapter, including the arms where claimgraph loses
+and the one where the best available answer is "the graph does not know."

@@ -160,6 +160,11 @@ an ingestion tier, and the graph compiles its current view back into the
 file the harness injects. Capture is delegated in, injection is delegated
 out, and the structured store sits in the middle as the consolidator. The
 design note is [`docs/consuming-auto-memory.md`](https://github.com/kirahowe/claimgraph/blob/main/docs/consuming-auto-memory.md).
+The failure modes this chapter opened with are also mechanically
+measurable: `claim audit` points the conflict machinery at an existing pile
+and scores them — contradictions, silent disagreements, staleness against
+the code, restatement, name drift, injection bloat — before anything is
+installed. The audit chapter runs it executably.
 
 Second, the claim has to be demonstrated as net end-task improvement, not
 retrieval metrics. The AGENTS.md result set the bar: context that merely

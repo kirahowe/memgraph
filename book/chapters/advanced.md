@@ -69,6 +69,21 @@ benchmark measures judge stability by running each labeled pair k times and
 reporting flip rate next to accuracy, because a pair that flips is a pair
 `--resolve` must not act on.
 
+## The pre-install audit
+
+**`audit`** points the judge-and-sweep machinery just described (plus the
+write path's flag/supersede/reinforce vocabulary) at a repo's existing
+memory pile, before claimgraph is installed: throwaway in-memory store,
+nothing written, no `dtlv` — `bb` and an extractor are the whole
+prerequisite list. Code facts ingest first so pile claims colliding with
+the code read as staleness, epistemic classes keep their predicate defaults
+so reported decisions flag instead of silently superseding, every finding
+carries verbatim quote receipts, and judged-compatible pairs are removed
+from the contradiction count. It never resolves anything, and exit code is
+0 even with findings: it is a diagnostic, not a gate. The audit chapter
+runs the whole pipeline executably; `--no-judge` and `--no-code` degrade it
+honestly when the LLM or the Clojure code ingester are unavailable.
+
 ## The outcome signal
 
 Read verbs log which facts they surface into `<db>.retrievals`. After the

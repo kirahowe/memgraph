@@ -28,6 +28,7 @@
                "conflicts.clj"
                "retrieval.clj"
                "ambient.clj"
+               "audit.clj"
                "multiwriter.clj"
                "internals.clj"]}
    {:part "Part III — Operations and Reference"

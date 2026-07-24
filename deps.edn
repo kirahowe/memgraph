@@ -6,7 +6,10 @@
         babashka/fs         {:mvn/version "0.5.34"}
         babashka/process    {:mvn/version "0.6.25"}
         org.babashka/cli    {:mvn/version "0.12.76"}
-        cheshire/cheshire   {:mvn/version "6.2.0"}}
+        cheshire/cheshire   {:mvn/version "6.2.0"}
+        ;; bb bundles edamame; the JVM book build needs it explicitly (the
+        ;; audit chapter loads claimgraph.audit -> ingest.clj-code)
+        borkdude/edamame    {:mvn/version "1.4.32"}}
  :aliases
  {:book {:extra-deps  {org.scicloj/clay {:mvn/version "2.0.16"}}
          :extra-paths ["book"]

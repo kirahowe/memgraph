@@ -16,6 +16,31 @@
 ;; Every command accepts `--db PATH` (default `$CLAIMGRAPH_DB` or
 ;; `./.claimgraph/db`) and emits JSON on stdout; add `--pretty` for humans.
 ;;
+;; ## Before installing anything: audit the pile you already have
+;;
+;; One verb runs without the store, the pod, or any commitment: `claim
+;; audit` points the conflict machinery at your existing agent-memory pile
+;; (`CLAUDE.md`, `AGENTS.md`, rules files, auto-memory notes) and scores its
+;; internal consistency. It needs only `bb` and an extractor command,
+;; everything happens in a throwaway in-memory store, and nothing is
+;; written:
+;;
+;; ```bash
+;; bin/claim audit --pretty
+;;   87 claims extracted from 4 files
+;;    7 contradictions   (opposed claims coexisting in the pile)
+;;   12 disagreements    (same subject, different values — the last one read silently wins)
+;;    9 stale            (contradicted by what the code says today)
+;;   23 restatements     (the same fact maintained in more than one place)
+;;    3 name clusters    (AuthSvc / auth-service / AuthService)
+;;   41 KB injected per session against a ~25 KB window  ** over budget **
+;; ```
+;;
+;; Every number carries verbatim quote receipts, and the findings are
+;; precisely the diseases the rest of this book cures. The audit chapter
+;; runs the whole pipeline executably; the rest of this chapter builds the
+;; graph that replaces the pile.
+;;
 ;; ## A store, in code
 ;;
 ;; The CLI's Datalevin backend and the in-memory backend used here implement

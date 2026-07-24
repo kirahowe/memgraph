@@ -448,7 +448,7 @@ CLI uses, so an MCP front-end won't invalidate it.
 ## Tests
 
 ```bash
-bb test    # 119 tests / 757 assertions
+bb test    # 153 tests / 759 assertions
 ```
 
 The core-semantics suite runs against BOTH store implementations (the proof of
