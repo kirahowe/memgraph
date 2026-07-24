@@ -486,6 +486,11 @@ Quarto book. Build it with `bb book` (needs a JVM and the
   drift, injection bloat) that runs before claimgraph is even installed.
   First of the three measurement tiers; shipped (`src/claimgraph/audit.clj`
   — the header notes the few implementation deviations).
+- `docs/language-adapters.md` — spec + handoff for the language-adapter
+  registry (Kotlin + TypeScript via command-shaped analyzers, a
+  bring-your-own-analyzer config seam) and the ambient code-freshness stage
+  (delta-gated `ingest-code` in `hooks run`, so teammates' pushed changes
+  reconcile mechanically). Not yet built.
 - `.claude/skills/claimgraph/SKILL.md` — the usage judgment: when an agent should
   consult, write, and how to phrase facts. Generated from
   `resources/claimgraph/SKILL.md` (the template `claim setup` installs into
